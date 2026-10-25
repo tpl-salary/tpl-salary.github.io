@@ -215,6 +215,8 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .stat b em{font-style:normal;font-size:13px;color:var(--ink3);font-weight:600}
 .cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .cols2>.card{margin-bottom:0}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+.cols3>.card{margin-bottom:0}
 .brow{display:grid;grid-template-columns:130px 1fr 44px;gap:10px;align-items:center;font-size:14px;margin-top:10px}
 .brow .bar{height:10px}
 .brow b{text-align:right}
@@ -285,7 +287,7 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .prog small{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink3);margin-bottom:5px}
 .att-split{display:block}
 @media(min-width:1180px){
-  .att-split{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+  .att-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
   .att-split .alist-wrap{position:sticky;top:16px;max-height:calc(100vh - 32px);display:flex;flex-direction:column}
   .att-split .alist-wrap .list{overflow:auto;flex:1}
   .att-split .alist-wrap.hide-d{display:flex!important}
@@ -323,11 +325,9 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .save-st.bad{color:var(--neg);font-weight:700}
 .keys{font-size:12px;color:var(--ink3);line-height:1.6;background:var(--soft);border-radius:10px;padding:7px 10px;margin-bottom:8px}
 .keys kbd{font:700 11px 'Inter',sans-serif;background:var(--card);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px}
-.dtab{border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.drh,.dr{display:grid;grid-template-columns:74px 196px 86px 86px 92px minmax(0,1fr);gap:8px;align-items:center;padding:5px 10px}
+.dtab{border:1px solid var(--line);border-radius:14px;overflow-x:auto;overflow-y:hidden}
+.drh,.dr{display:grid;grid-template-columns:var(--gc);gap:8px;align-items:center;padding:5px 10px;min-width:var(--gw,0)}
 .drh{font-size:12px;font-weight:700;color:var(--ink3);background:var(--soft);padding:8px 10px}
-.dtab.nt .drh,.dtab.nt .dr{grid-template-columns:74px 196px 92px minmax(0,1fr)}
-.dtab.nt .tcol{display:none}
 .dr{border-top:1px solid var(--line);font-size:14px;min-height:46px}
 .dr.off{background:color-mix(in srgb,var(--sO) 9%,transparent)}
 .dr.na{opacity:.45}
@@ -336,7 +336,7 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .dd span{font-size:12.5px;color:var(--ink3);margin-left:4px}
 .dd small{display:block;font-size:11px;color:var(--warn);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dst{display:flex;gap:3px}
-.dst button{width:36px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink3);font-size:13px;font-weight:700;padding:0}
+.dst button{width:33px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink3);font-size:13px;font-weight:700;padding:0}
 .dst button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .dst button.on{color:#fff;border-color:transparent}
 .dst button.on.P{background:var(--sP)} .dst button.on.A{background:var(--sA)} .dst button.on.L{background:var(--sL)}
@@ -376,7 +376,7 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 
 @media(max-width:999px){
   .stats{grid-template-columns:1fr 1fr}
-  .cols2{grid-template-columns:1fr}
+  .cols2,.cols3{grid-template-columns:1fr}
 }
 @media(max-width:760px){
   .lhead{display:none}
@@ -389,12 +389,13 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
   .addr{grid-template-columns:1fr 1fr}
   .addh{grid-template-columns:1fr 1fr}
   .drh{display:none}
-  .dr,.dtab.nt .dr{grid-template-columns:62px minmax(0,1fr);row-gap:6px;padding:8px 10px}
+  .dr{grid-template-columns:62px minmax(0,1fr);row-gap:6px;padding:8px 10px;min-width:0}
   .dr .dst{justify-content:flex-start;flex-wrap:wrap}
   .dr .tcol,.dr .dh,.dr .tn{grid-column:auto}
   .dr .tnw{grid-column:1 / -1}
-  .dr .tpair{grid-column:2;display:flex;gap:6px;align-items:center}
-  .dr .tpair .tcol{flex:1;min-width:0}
+  .dr .tpair{grid-column:2;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .dr .tpair .tcol{flex:1 1 64px;min-width:0}
+  .dr .tpair .tq{flex:0 0 58px}
   .dr .tcol:has(.ti:disabled){display:none}
   .keys{display:none}
   .sums{grid-template-columns:repeat(3,1fr);gap:6px}
@@ -651,13 +652,15 @@ var $ = function (id) { return document.getElementById(id); };
 var BN_M = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
 var BN_W = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
 var TYPES = { fixed: 'নির্দিষ্ট মাসিক', hourly: 'ঘণ্টাভিত্তিক', part: 'খণ্ডকালীন', contract: 'চুক্তিভিত্তিক' };
-var BASES = { month: 'মাসিক বেতন', day: 'দিন ধরে', hour: 'ঘণ্টা ধরে', piece: 'কাজ ধরে', flat: 'নির্দিষ্ট টাকা' };
-var RATE_LBL = { month: 'মাসিক বেতন', day: 'দৈনিক রেট', hour: 'ঘণ্টার রেট', piece: 'প্রতি কাজের রেট', flat: 'মাসিক নির্দিষ্ট টাকা' };
+var BASES = { month: 'মাসিক বেতন', day: 'দিন ধরে', hour: 'ঘণ্টা ধরে', class: 'ক্লাস ধরে', piece: 'কাজ ধরে', flat: 'নির্দিষ্ট টাকা' };
+var BLOODS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+var RATE_LBL = { month: 'মাসিক বেতন', day: 'দৈনিক রেট', hour: 'ঘণ্টার রেট', class: 'প্রতি ক্লাসের রেট', piece: 'প্রতি কাজের রেট', flat: 'মাসিক নির্দিষ্ট টাকা' };
 var BASIS_HELP = {
   month: 'মাসিক বেতন থেকে বিনা ছুটিতে অনুপস্থিত দিন (মাস = ৩০ দিন ধরে) কাটা যাবে।',
   day: 'যত দিন উপস্থিত × দৈনিক রেট। মঞ্জুর ছুটির দিনও গোনা হবে।',
   hour: 'খাতার আসা-যাওয়ার সময় থেকে মোট ঘণ্টা × ঘণ্টার রেট — প্রতিদিনের সময় তুলতে হবে।',
-  piece: 'মাসে যত কাজ/পিস × প্রতি কাজের রেট — মাস শেষে কাজের পরিমাণ তুলতে হবে।',
+  class: 'মাসে মোট ক্লাস × প্রতি ক্লাসের রেট (কোচিং)। দিনে দিনে ক্লাস সংখ্যা তোলা যায়, অথবা মাসের মোটটা একবারে। নির্দিষ্ট বেতনের সাথে ক্লাসের টাকাও হলে নির্দিষ্ট অংশটা "ভাতা"-য় দিন।',
+  piece: 'মাসে যত কাজ/পিস × প্রতি কাজের রেট — দিনে দিনে অথবা মাসের মোট পরিমাণ তুলতে হবে।',
   flat: 'হাজিরা ছাড়াই মাসে ঠিক করা টাকা (যেমন চুক্তির মাসিক টাকা)।'
 };
 var TYPE_BASIS = { fixed: 'month', hourly: 'hour', part: 'month', contract: 'flat' };
@@ -671,8 +674,8 @@ var KEY_ST = { p: 'P', a: 'A', l: 'L', u: 'U', h: 'H', o: 'O' };
 var S = {
   me: null, set: {}, emps: [], rates: {}, hol: [], holMap: {}, today: '',
   page: 'dash', month: '', att: null, attFor: '', attLoading: false, attErr: '',
-  ef: { q: '', dept: '', type: '', st: 'active' },
-  af: { q: '', dept: '', st: 'all' }, sel: null,
+  ef: { q: '', dept: '', type: '', org: '', st: 'active' },
+  af: { q: '', dept: '', org: '', st: 'all' }, sel: null,
   cur: null, timeOn: null, holYear: 0, booted: false, bootErr: ''
 };
 
@@ -701,8 +704,8 @@ function hm(min) { min = Math.round(min || 0); var h = Math.floor(min / 60), m =
 function offTxt(off) { return off && off.length ? off.map(function (d) { return BN_W[d]; }).join(', ') : 'নেই'; }
 
 /* "০৯১৫", "915", "9.15", "9:15", "5:30 pm" — সব বুঝে HH:mm; am/pm না দিলে নির্ধারিত সময়ের
- * সবচেয়ে কাছেরটা ধরে (খাতায় "৫:৩০" লেখা যাওয়ার সময় = বিকাল ৫:৩০) */
-function parseTime(v, ref) {
+ * সবচেয়ে কাছেরটা ধরে; যাওয়ার সময়ে after = আসার সময় — তার পরের প্রথমটা (৯টায় এলে "৫:৩০" = বিকাল ৫:৩০, "১০" = সকাল ১০টা) */
+function parseTime(v, ref, after) {
   var s = bnDigits(String(v || '')).trim().toLowerCase().replace(/\s+/g, '');
   if (!s) return '';
   var ap = /(am|pm|a|p)$/.exec(s); if (ap) s = s.slice(0, -ap[0].length);
@@ -720,6 +723,9 @@ function parseTime(v, ref) {
     if (h > 12) return null;
     if (ap[0][0] === 'p' && h < 12) h += 12;
     if (ap[0][0] === 'a' && h === 12) h = 0;
+  } else if (h <= 12 && after != null && ((h % 12) * 60 + m >= after || (h % 12) * 60 + m + 720 >= after)) {
+    var a1 = (h % 12) * 60 + m;
+    h = Math.floor((a1 >= after ? a1 : a1 + 720) / 60);
   } else if (h <= 12 && ref != null) {
     var c1 = (h % 12) * 60 + m, c2 = c1 + 720;
     var d1 = Math.min(Math.abs(c1 - ref), 1440 - Math.abs(c1 - ref)), d2 = Math.min(Math.abs(c2 - ref), 1440 - Math.abs(c2 - ref));
@@ -749,11 +755,11 @@ function depts() {
 }
 function setHolMap() { S.holMap = {}; S.hol.forEach(function (h) { S.holMap[h.date] = h.name; }); }
 
-/* মাসের সারাংশ — সার্ভারের attSum_ (Data ফাইল)-এর হুবহু একই হিসাব */
+/* মাসের সারাংশ — সার্ভারের attSum_/dayMin_/dayLate_ (Data ফাইল)-এর হুবহু একই হিসাব।
+ * দুই বেলা চালু থাকলে সকাল (i/o) আর বিকাল (i2/o2) আলাদা — ঘণ্টা দুটোর যোগফল, দেরি দুই বেলারই। */
 function attSum(e, month, days) {
   var n = mdays(month), off = e.off || [], grace = Number(S.set.lateGrace) || 0;
-  var out = { work: 0, P: 0, A: 0, L: 0, U: 0, H: 0, OW: 0, late: 0, lateMin: 0, min: 0 };
-  var sched = Math.max(0, span(e.tin, e.tout) - (e.brk || 0));
+  var out = { work: 0, P: 0, A: 0, L: 0, U: 0, H: 0, OW: 0, late: 0, lateMin: 0, min: 0, q: 0 };
   for (var d = 1; d <= n; d++) {
     var date = month + '-' + pad(d);
     if ((e.join && date < e.join) || (e.leave && date > e.leave)) continue;
@@ -765,24 +771,49 @@ function attSum(e, month, days) {
     out[s]++;
     if (s !== 'P' && s !== 'H') continue;
     if (isOff) out.OW++;
-    var m = dayMin(e, x, s, sched);
-    out.min += m;
+    out.q += Number(x.q) || 0;
+    out.min += dayMin(e, x, s);
     var lt = dayLate(e, x, isOff, grace);
     if (lt) { out.late++; out.lateMin += lt; }
   }
   out.hours = Math.round(out.min / 6) / 10;
+  out.q = Math.round(out.q * 100) / 100;
   return out;
 }
-function dayMin(e, x, s, sched) {
-  var i = x.i || e.tin, o = x.o || e.tout;
-  var m = x.i || x.o ? Math.max(0, span(i, o) - (span(i, o) > 300 ? e.brk || 0 : 0)) : sched;
-  if (s === 'H' && !x.i && !x.o) m = Math.round(sched / 2);
-  return m;
+function sessions(e) {
+  return e.split ? [['i', 'o', 'tin', 'tout'], ['i2', 'o2', 'tin2', 'tout2']] : [['i', 'o', 'tin', 'tout']];
+}
+function dayMin(e, x, s) {
+  var ss = sessions(e), anyT = ss.some(function (k) { return x[k[0]] || x[k[1]]; }), m = 0;
+  ss.forEach(function (k) {
+    if (s === 'H' && anyT && !(x[k[0]] || x[k[1]])) return;
+    m += span(x[k[0]] || e[k[2]], x[k[1]] || e[k[3]]);
+  });
+  if (!e.split && m > 300) m -= e.brk || 0;
+  if (s === 'H' && !anyT) m = Math.round(m / 2);
+  return Math.max(0, m);
 }
 function dayLate(e, x, isOff, grace) {
-  if (isOff || !x.i || !e.tin) return 0;
-  var late = tmin(x.i) - tmin(e.tin);
-  return late > grace && late < 720 ? late : 0;
+  if (isOff) return 0;
+  var t = 0;
+  sessions(e).forEach(function (k) {
+    if (!x[k[0]] || !e[k[2]]) return;
+    var l = tmin(x[k[0]]) - tmin(e[k[2]]);
+    if (l > grace && l < 720) t += l;
+  });
+  return t;
+}
+function schedTxt(e) { return e.split ? e.tin + '–' + e.tout + ' ও ' + e.tin2 + '–' + e.tout2 : e.tin + '–' + e.tout; }
+function qtyOn(e) { return e.basis === 'class' || e.basis === 'piece'; }
+function qtyWord(e) { return e.basis === 'class' ? 'ক্লাস' : 'কাজ'; }
+function orgs() { return S.set.orgs || []; }
+// খাতার পাতা নম্বর ধরে সাজানো (খাতা উল্টানোর ক্রমে); পাতা না থাকলে বিভাগ, তারপর আইডি
+function bySheet(a, b) {
+  var sa = parseFloat(a.sheet), sb = parseFloat(b.sheet);
+  if (!isNaN(sa) || !isNaN(sb)) { if (isNaN(sa)) return 1; if (isNaN(sb)) return -1; if (sa !== sb) return sa - sb; }
+  var x = (a.dept || '').localeCompare(b.dept || '', 'bn');
+  if (x) return x;
+  return /^\d+$/.test(a.id) && /^\d+$/.test(b.id) ? +a.id - +b.id : a.id.localeCompare(b.id);
 }
 
 /* ---------- শুরু / লোড ---------- */
@@ -893,6 +924,9 @@ function dashPage() {
   var holN = S.hol.filter(function (h) { return h.date.slice(0, 7) === S.month; }).length;
   var byType = {}; act.forEach(function (e) { byType[e.type] = (byType[e.type] || 0) + 1; });
   var byDept = {}; act.forEach(function (e) { var d = e.dept || 'বিভাগ ছাড়া'; byDept[d] = (byDept[d] || 0) + 1; });
+  var byOrg = {}; act.forEach(function (e) { var o = e.org || 'প্রতিষ্ঠান দেওয়া নেই'; byOrg[o] = (byOrg[o] || 0) + 1; });
+  var ok2 = orgs().filter(function (o) { return byOrg[o]; }).concat(Object.keys(byOrg).filter(function (o) { return orgs().indexOf(o) === -1; }));
+  var maxO = Math.max.apply(null, [1].concat(ok2.map(function (o) { return byOrg[o]; })));
   var maxT = Math.max.apply(null, [1].concat(Object.keys(byType).map(function (k) { return byType[k]; })));
   var dk = Object.keys(byDept).sort(function (a, b) { return byDept[b] - byDept[a]; });
   var maxD = dk.length ? byDept[dk[0]] : 1;
@@ -910,7 +944,10 @@ function dashPage() {
     '<div class="card"><h3>' + monthLabel(S.month) + ' — হাজিরা তোলা <span class="chip acc">' + p + '%</span></h3>' +
       '<div class="bar" style="margin-top:10px"><i style="width:' + p + '%"></i></div>' +
       '<p class="hint" style="margin-top:8px">' + (inM.length ? (inM.length - done) + ' জনের হাজিরা তোলা বাকি। মাসের প্রথম ১০ দিন আগের মাসের হিসাব দেখায় — হাজিরার পাতায় মাস বদলানো যায়।' : 'এখনো কোনো কর্মচারী যোগ করা হয়নি।') + '</p></div>' +
-    '<div class="cols2">' +
+    '<div class="cols3">' +
+      '<div class="card"><h3>প্রতিষ্ঠান অনুযায়ী</h3>' + (ok2.length ? ok2.map(function (o) {
+        return '<div class="brow"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(o) + '">' + esc(o) + '</span><div class="bar"><i style="width:' + Math.round(byOrg[o] / maxO * 100) + '%"></i></div><b class="num">' + byOrg[o] + '</b></div>';
+      }).join('') : '<p class="hint" style="margin-top:8px">কর্মচারী যোগ করলে এখানে দেখাবে।</p>') + '</div>' +
       '<div class="card"><h3>ধরন অনুযায়ী</h3>' + (act.length ? Object.keys(TYPES).map(function (k) {
         var n = byType[k] || 0;
         return '<div class="brow"><span>' + TYPES[k] + '</span><div class="bar"><i style="width:' + Math.round(n / maxT * 100) + '%"></i></div><b class="num">' + n + '</b></div>';
@@ -920,7 +957,7 @@ function dashPage() {
       }).join('') : '<p class="hint" style="margin-top:8px">কর্মচারী যোগ করলে এখানে দেখাবে।</p>') + '</div>' +
     '</div>' +
     '<div class="card" style="margin-top:14px"><h3>তৈরির ধাপ</h3><div class="steps">' +
-      '<div class="now"><i>🟢</i><span><b>ধাপ ১ — এখন চলছে</b><small>কর্মচারী, বেতন/রেটের ইতিহাস, খাতা থেকে হাজিরা তোলা, ছুটির দিন</small></span></div>' +
+      '<div class="now"><i>🟢</i><span><b>ধাপ ১ — এখন চলছে</b><small>কর্মচারী (তিন প্রতিষ্ঠান), বেতন/রেটের ইতিহাস, খাতা থেকে হাজিরা (দুই বেলা, ক্লাস), ছুটির দিন</small></span></div>' +
       '<div><i>⚪</i><span><b>ধাপ ২ — বেতন ইঞ্জিন</b><small>সব ধরনের হিসাব, যাচাই, অনুমোদন (মাস তালাবদ্ধ)</small></span></div>' +
       '<div><i>⚪</i><span><b>ধাপ ৩ — অগ্রিম ও বেতন-রসিদ</b><small>অগ্রিম/সমন্বয়, প্রত্যেকের রসিদ, মাসের বেতন শিট</small></span></div>' +
       '<div><i>⚪</i><span><b>ধাপ ৪ — অনুমতি ও কর্মচারীর পাতা</b><small>কে কী করবেন, কর্মচারী আইডি + পিন দিয়ে নিজের হিসাব, রিপোর্ট</small></span></div>' +
@@ -935,7 +972,8 @@ function empFiltered() {
     if (f.st === 'left' && e.active) return false;
     if (f.dept && e.dept !== f.dept) return false;
     if (f.type && e.type !== f.type) return false;
-    if (q && (e.name + ' ' + e.id + ' ' + e.phone + ' ' + e.desig).toLowerCase().indexOf(q) === -1) return false;
+    if (f.org && e.org !== f.org) return false;
+    if (q && (e.name + ' ' + e.id + ' ' + e.phone + ' ' + e.desig + ' পাতা' + e.sheet).toLowerCase().indexOf(q) === -1) return false;
     return true;
   }).sort(function (a, b) {
     var x = /^\d+$/.test(a.id) && /^\d+$/.test(b.id) ? +a.id - +b.id : a.id.localeCompare(b.id);
@@ -950,6 +988,7 @@ function empPage() {
     '<div class="tools">' +
       '<input class="in" id="efQ" placeholder="🔍 নাম, আইডি বা ফোন" value="' + esc(S.ef.q) + '">' +
       '<select class="sel" id="efDept"><option value="">সব বিভাগ</option>' + depts().map(function (d) { return '<option' + (S.ef.dept === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+      (orgs().length > 1 ? '<select class="sel" id="efOrg"><option value="">সব প্রতিষ্ঠান</option>' + orgs().map(function (o) { return '<option' + (S.ef.org === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' : '') +
       '<select class="sel" id="efType"><option value="">সব ধরন</option>' + Object.keys(TYPES).map(function (k) { return '<option value="' + k + '"' + (S.ef.type === k ? ' selected' : '') + '>' + TYPES[k] + '</option>'; }).join('') + '</select>' +
       '<div class="seg" id="efSt">' + [['active', 'সক্রিয়'], ['left', 'বাদ পড়া'], ['all', 'সব']].map(function (o) {
         return '<button data-v="' + o[0] + '" class="' + (S.ef.st === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
@@ -964,10 +1003,10 @@ function empRows(list) {
       var r = curRate(e.id);
       return '<div class="erow' + (e.active ? '' : ' off') + '" data-a="emp-open" data-id="' + esc(e.id) + '">' +
         '<span class="eid">' + esc(e.id) + '</span>' +
-        '<span><b>' + esc(e.name) + '</b><small>' + esc([e.desig, e.dept].filter(Boolean).join(' · ') || '—') + '<span class="mob"> · ' + esc(e.id) + '</span>' + (e.active ? '' : ' · বাদ ' + dateLabel(e.leave)) + '</small></span>' +
+        '<span><b>' + esc(e.name) + '</b><small>' + esc([e.desig, e.dept, e.org].filter(Boolean).join(' · ') || '—') + (e.sheet ? ' · পাতা ' + esc(e.sheet) : '') + '<span class="mob"> · ' + esc(e.id) + '</span>' + (e.active ? '' : ' · বাদ ' + dateLabel(e.leave)) + '</small></span>' +
         '<span class="tp ' + e.type + '">' + TYPES[e.type] + '</span>' +
         '<span class="erate"><b class="num">' + (r ? tk(r.amount) : '—') + '</b><small>' + RATE_LBL[e.basis] + (r && r.allow ? ' + ভাতা ' + tk(r.allow) : '') + '</small></span>' +
-        '<span class="esch num">' + (e.basis === 'flat' ? '—' : esc(e.tin + '–' + e.tout)) + '<small>ছুটি: ' + offTxt(e.off) + '</small></span>' +
+        '<span class="esch num">' + (e.basis === 'flat' ? '—' : esc(schedTxt(e))) + '<small>ছুটি: ' + offTxt(e.off) + '</small></span>' +
       '</div>';
     }).join('') + '<div class="lfoot">' + list.length + ' জন দেখানো হচ্ছে</div>';
 }
@@ -978,7 +1017,8 @@ var F = null;   // { isNew, e, rate }
 function blankEmp() {
   return { id: '', name: '', desig: '', dept: '', type: 'fixed', basis: 'month', phone: '', join: '', leave: '', active: true,
     tin: S.set.defIn || '09:00', tout: S.set.defOut || '17:00', brk: S.set.defBrk || 0, off: (S.set.defOff || [5]).slice(),
-    late: false, ot: false, otMode: 'x', otVal: 1.5, pay: 'cash', acct: '', view: false, note: '' };
+    late: false, ot: false, otMode: 'x', otVal: 1.5, pay: 'cash', acct: '', view: false, note: '',
+    org: orgs().length === 1 ? orgs()[0] : '', sheet: '', blood: '', split: false, tin2: '', tout2: '' };
 }
 function openEmp(id) {
   var e = id ? empById(id) : null;
@@ -1004,6 +1044,9 @@ function drawEmpForm() {
       '<div><label class="fl">বিভাগ</label><input class="in" id="f_dept" maxlength="40" list="deptList" value="' + esc(e.dept) + '">' + dl + '</div></div>' +
     '<div class="g2"><div><label class="fl">ফোন</label><input class="in num" id="f_phone" inputmode="tel" maxlength="20" value="' + esc(e.phone) + '"></div>' +
       '<div><label class="fl">যোগদানের তারিখ <em>(জানা না থাকলে ফাঁকা)</em></label><input class="in" id="f_join" type="date" value="' + esc(e.join) + '"></div></div>' +
+    '<label class="fl">প্রতিষ্ঠান</label>' + segH('org', orgs().concat(e.org && orgs().indexOf(e.org) === -1 ? [e.org] : []).map(function (o) { return [o, esc(o)]; }), e.org) +
+    '<div class="g2"><div><label class="fl">খাতার পাতা নম্বর <em>(SHEET NO)</em></label><input class="in num" id="f_sheet" maxlength="10" value="' + esc(e.sheet) + '"></div>' +
+      '<div><label class="fl">রক্তের গ্রুপ</label><select class="sel" id="f_blood"><option value="">—</option>' + BLOODS.map(function (g) { return '<option' + (e.blood === g ? ' selected' : '') + '>' + g + '</option>'; }).join('') + '</select></div></div>' +
 
     '<div class="sh-sec">বেতন</div>' +
     '<label class="fl">কর্মচারীর ধরন</label>' + segH('type', Object.keys(TYPES).map(function (k) { return [k, TYPES[k]]; }), e.type) +
@@ -1026,10 +1069,13 @@ function drawEmpForm() {
         '<input class="in" id="nr_note" maxlength="100" placeholder="কারণ (ঐচ্ছিক) — যেমন বার্ষিক বৃদ্ধি" style="margin-top:8px">') +
 
     '<div class="sh-sec">সময়সূচি' + (e.basis === 'flat' ? ' <em style="font-weight:500;color:var(--ink3)">(নির্দিষ্ট টাকায় হাজিরা লাগে না — তবু রাখা যায়)</em>' : '') + '</div>' +
-    '<div class="g3"><div><label class="fl">আসার সময়</label><input class="in num" id="f_tin" type="time" value="' + esc(e.tin) + '"></div>' +
-      '<div><label class="fl">যাওয়ার সময়</label><input class="in num" id="f_tout" type="time" value="' + esc(e.tout) + '"></div>' +
-      '<div><label class="fl">বিরতি (মিনিট)</label><input class="in num" id="f_brk" inputmode="numeric" value="' + esc(e.brk) + '"></div></div>' +
-    '<p class="hint" style="margin-top:6px">দৈনিক কর্মঘণ্টা: <b class="num">' + hm(Math.max(0, span(e.tin, e.tout) - (Number(e.brk) || 0))) + '</b></p>' +
+    '<div class="swrow" style="margin-top:4px"><span>দুই বেলা (সকাল + বিকাল)<small>খাতায় সকাল আর বিকালের আলাদা আসা-যাওয়া — যেমন কোচিংয়ের দুই শিফট</small></span><button type="button" class="sw' + (e.split ? ' on' : '') + '" data-fsw="split"></button></div>' +
+    '<div class="g3"><div><label class="fl">' + (e.split ? 'সকালে আসা' : 'আসার সময়') + '</label><input class="in num" id="f_tin" type="time" value="' + esc(e.tin) + '"></div>' +
+      '<div><label class="fl">' + (e.split ? 'সকালে যাওয়া' : 'যাওয়ার সময়') + '</label><input class="in num" id="f_tout" type="time" value="' + esc(e.tout) + '"></div>' +
+      (e.split ? '<div></div>' : '<div><label class="fl">বিরতি (মিনিট)</label><input class="in num" id="f_brk" inputmode="numeric" value="' + esc(e.brk) + '"></div>') + '</div>' +
+    (e.split ? '<div class="g3"><div><label class="fl">বিকালে আসা</label><input class="in num" id="f_tin2" type="time" value="' + esc(e.tin2) + '"></div>' +
+      '<div><label class="fl">বিকালে যাওয়া</label><input class="in num" id="f_tout2" type="time" value="' + esc(e.tout2) + '"></div><div></div></div>' : '') +
+    '<p class="hint" id="f_hrs" style="margin-top:6px">' + hrsTxt(e) + '</p>' +
     '<label class="fl">সাপ্তাহিক ছুটি</label><div class="days7" id="f_off">' + BN_W.map(function (w, i) {
       return '<button type="button" data-d="' + i + '" class="' + (e.off.indexOf(i) !== -1 ? 'on' : '') + '">' + w + '</button>'; }).join('') + '</div>' +
 
@@ -1054,11 +1100,12 @@ function drawEmpForm() {
       '<span class="grow"></span><button class="btn" type="button" data-a="close">বাতিল</button>' +
       '<button class="btn pri" type="button" data-a="emp-save" id="empSaveBtn">✓ সেভ করুন</button></div>';
 }
+function hrsTxt(e) { return 'দৈনিক কর্মঘণ্টা: <b class="num">' + hm(dayMin({ split: e.split, brk: Number(e.brk) || 0, tin: e.tin, tout: e.tout, tin2: e.tin2, tout2: e.tout2 }, {}, 'P')) + '</b>'; }
 // ফর্মের লেখা F.e-তে তুলে রাখা (আবার আঁকার আগে)
 function readEmpForm() {
   var e = F.e, v = function (id) { var x = $(id); return x ? x.value : undefined; };
   if (F.isNew && v('f_id') !== undefined) e.id = v('f_id').trim().toUpperCase();
-  ['name', 'desig', 'dept', 'phone', 'join', 'tin', 'tout', 'note', 'acct', 'leave'].forEach(function (k) { var x = v('f_' + k); if (x !== undefined) e[k] = x.trim(); });
+  ['name', 'desig', 'dept', 'phone', 'join', 'tin', 'tout', 'tin2', 'tout2', 'sheet', 'blood', 'note', 'acct', 'leave'].forEach(function (k) { var x = v('f_' + k); if (x !== undefined) e[k] = x.trim(); });
   if (v('f_brk') !== undefined) e.brk = bnDigits(v('f_brk')).trim();
   if (v('f_otVal') !== undefined) e.otVal = bnDigits(v('f_otVal')).trim();
   if (F.isNew) { F.rate.amount = bnDigits(v('f_amount') || '').replace(/[,৳\s]/g, ''); F.rate.allow = bnDigits(v('f_allow') || '').replace(/[,৳\s]/g, ''); }
@@ -1082,8 +1129,9 @@ function saveEmp() {
 
 /* ---------- এক্সেল থেকে একসাথে ---------- */
 var IMP_COLS = [
-  ['name', 'নাম'], ['desig', 'পদ'], ['dept', 'বিভাগ'], ['phone', 'ফোন'], ['type', 'ধরন'], ['basis', 'হিসাবের ভিত্তি'],
-  ['amount', 'বেতন/রেট'], ['allow', 'ভাতা'], ['join', 'যোগদান'], ['tin', 'আসা'], ['tout', 'যাওয়া'], ['off', 'সাপ্তাহিক ছুটি'], ['id', 'আইডি']
+  ['name', 'নাম'], ['desig', 'পদ'], ['dept', 'বিভাগ'], ['org', 'প্রতিষ্ঠান'], ['sheet', 'খাতার পাতা'], ['phone', 'ফোন'], ['blood', 'রক্তের গ্রুপ'],
+  ['type', 'ধরন'], ['basis', 'হিসাবের ভিত্তি'], ['amount', 'বেতন/রেট'], ['allow', 'ভাতা'], ['join', 'যোগদান'],
+  ['tin', 'আসা'], ['tout', 'যাওয়া'], ['tin2', 'বিকালে আসা'], ['tout2', 'বিকালে যাওয়া'], ['off', 'সাপ্তাহিক ছুটি'], ['id', 'আইডি']
 ];
 var IMP_ALIAS = {
   id: ['আইডি', 'id', 'কোড', 'code', 'আইডিনম্বর', 'empid'], name: ['নাম', 'name', 'কর্মচারীরনাম'], desig: ['পদ', 'পদবি', 'designation', 'post'],
@@ -1092,12 +1140,34 @@ var IMP_ALIAS = {
   amount: ['বেতন/রেট', 'বেতন', 'রেট', 'হার', 'salary', 'rate', 'amount', 'বেতনবারেট'], allow: ['ভাতা', 'allowance'],
   join: ['যোগদান', 'যোগদানেরতারিখ', 'join', 'joining', 'joiningdate'], tin: ['আসা', 'আসারসময়', 'in', 'intime'],
   tout: ['যাওয়া', 'যাওয়ারসময়', 'out', 'outtime'], off: ['সাপ্তাহিকছুটি', 'ছুটি', 'ছুটিরদিন', 'off', 'weeklyoff', 'dayoff'],
-  pay: ['পরিশোধ', 'পেমেন্ট', 'payment'], acct: ['হিসাবনম্বর', 'অ্যাকাউন্ট', 'account']
+  pay: ['পরিশোধ', 'পেমেন্ট', 'payment'], acct: ['হিসাবনম্বর', 'অ্যাকাউন্ট', 'account'],
+  org: ['প্রতিষ্ঠান', 'প্রতিষ্ঠানেরনাম', 'company', 'institution', 'org', 'organization'],
+  sheet: ['খাতারপাতা', 'পাতা', 'পাতানম্বর', 'sheet', 'sheetno', 'page'], blood: ['রক্তেরগ্রুপ', 'রক্ত', 'blood', 'bloodgroup'],
+  tin2: ['বিকালেআসা', 'বিকালআসা', 'in2', 'afternoonin'], tout2: ['বিকালেযাওয়া', 'বিকালযাওয়া', 'out2', 'afternoonout']
 };
+// "publication", "পাবলিকেশন", "TP" — যেকোনোটা দিলে প্রতিষ্ঠান চেনে
+var ORG_BN = { publication: 'পাবলিকেশন', teaching: 'টিচিং', home: 'হোম', easy: 'ইজি', education: 'এডুকেশন' };
+function impOrg(v) {
+  var t = String(v || '').trim().toLowerCase(); if (!t) return '';
+  var tn = t.replace(/[\s.]/g, ''), hit = null;
+  orgs().forEach(function (o) {
+    if (hit) return;
+    var on = o.toLowerCase(), words = on.split(/\s+/), ini = words.map(function (w) { return w[0]; }).join('');
+    if (on.replace(/\s/g, '') === tn || ini === tn) { hit = o; return; }
+    var keys = words.filter(function (w) { return w !== 'technique' && w.length > 2; });
+    if (keys.length && keys.every(function (w) { return t.indexOf(w) !== -1 || (ORG_BN[w] && t.indexOf(ORG_BN[w]) !== -1); })) hit = o;
+  });
+  if (!hit) orgs().forEach(function (o) {
+    if (hit) return;
+    var keys = o.toLowerCase().split(/\s+/).filter(function (w) { return w !== 'technique' && w !== 'home' && w !== 'education' && w.length > 2; });
+    if (keys.some(function (w) { return t.indexOf(w) !== -1 || (ORG_BN[w] && t.indexOf(ORG_BN[w]) !== -1); })) hit = o;
+  });
+  return hit;
+}
 var IMP = { rows: [], errs: 0 };
 function openImport() {
   openSheet('⬆ এক্সেল থেকে কর্মচারী যোগ', '<p class="hint">এক্সেল বা গুগল শিটে কর্মচারীদের তালিকা থেকে সারিগুলো (প্রথমে কলামের নামের সারিসহ) কপি করে নিচে পেস্ট করুন। কলামের নাম বাংলা বা ইংরেজি — যেকোনো ক্রমে চলবে।</p>' +
-    '<p class="hint" style="margin-top:6px">কলাম: <b>' + IMP_COLS.map(function (c) { return c[1]; }).join(' · ') + '</b> — শুধু "নাম" আর "বেতন/রেট" লাগবেই; বাকিগুলো ফাঁকা থাকলে সেটিংসের সাধারণ সময়সূচি বসবে। ধরন: মাসিক / ঘণ্টা / খণ্ডকালীন / চুক্তি। সাপ্তাহিক ছুটি: শুক্র, শনি…</p>' +
+    '<p class="hint" style="margin-top:6px">কলাম: <b>' + IMP_COLS.map(function (c) { return c[1]; }).join(' · ') + '</b> — শুধু "নাম" আর "বেতন/রেট" লাগবেই; বাকিগুলো ফাঁকা থাকলে সেটিংসের সাধারণ সময়সূচি বসবে। ধরন: মাসিক / ঘণ্টা / খণ্ডকালীন / চুক্তি · ভিত্তি: মাসিক / দিন / ঘণ্টা / ক্লাস / কাজ / নির্দিষ্ট টাকা · প্রতিষ্ঠান: পুরো নাম বা TP / TTH / TEE · সাপ্তাহিক ছুটি: শুক্র, শনি… · বিকালের সময় দিলে দুই বেলা ধরা হবে।</p>' +
     '<div style="display:flex;gap:8px;margin:10px 0"><button class="btn sm" data-a="imp-tpl">📋 কলামের নামগুলো কপি করুন</button></div>' +
     '<textarea class="in" id="impTxt" placeholder="এখানে পেস্ট করুন (Ctrl+V)"></textarea>' +
     '<div id="impPrev"></div>' +
@@ -1128,10 +1198,18 @@ function impParse() {
     r.allow = bnDigits(g('allow')).replace(/[,৳\s]|tk|টাকা/gi, '');
     r.join = impDate(g('join')); if (r.join === null) { errs.push('যোগদানের তারিখ বোঝা যায়নি'); r.join = ''; }
     r.tin = g('tin') ? parseTime(g('tin'), 9 * 60) : (S.set.defIn || '09:00');
-    r.tout = g('tout') ? parseTime(g('tout'), 17 * 60) : (S.set.defOut || '17:00');
+    r.tout = g('tout') ? parseTime(g('tout'), 17 * 60, tmin(r.tin)) : (S.set.defOut || '17:00');
     if (!r.tin) { errs.push('আসার সময় বোঝা যায়নি'); r.tin = ''; }
     if (!r.tout) { errs.push('যাওয়ার সময় বোঝা যায়নি'); r.tout = ''; }
     r.brk = S.set.defBrk || 0;
+    r.org = impOrg(g('org')); if (r.org === null) { errs.push('প্রতিষ্ঠান চেনা যায়নি'); r.org = ''; }
+    r.sheet = bnDigits(g('sheet'));
+    r.blood = g('blood').toUpperCase().replace(/\s|VE$/g, '').replace(/POSITIVE$/, '+').replace(/NEGATIVE$/, '-');
+    if (r.blood && BLOODS.indexOf(r.blood) === -1) { errs.push('রক্তের গ্রুপ ঠিক নেই'); r.blood = ''; }
+    if (g('tin2') || g('tout2')) {
+      r.split = true; r.tin2 = parseTime(g('tin2'), 15 * 60, tmin(r.tout)); r.tout2 = parseTime(g('tout2'), 18 * 60, tmin(r.tin2));
+      if (!r.tin2 || !r.tout2) { errs.push('বিকালের সময় বোঝা যায়নি'); r.tin2 = r.tin2 || ''; r.tout2 = r.tout2 || ''; }
+    }
     r.off = map.off != null && g('off') !== '' ? impOff(g('off')) : (S.set.defOff || [5]).slice();
     if (r.off === null) { errs.push('সাপ্তাহিক ছুটি বোঝা যায়নি'); r.off = []; }
     var pay = g('pay').toLowerCase(); r.pay = /বিকাশ|bkash/.test(pay) ? 'bkash' : /নগদ\s*\(|nagad|অ্যাপ/.test(pay) ? 'nagad' : /ব্যাংক|bank/.test(pay) ? 'bank' : 'cash';
@@ -1149,11 +1227,11 @@ function impParse() {
   });
   var n = IMP.rows.length;
   $('impPrev').innerHTML = '<p class="hint" style="margin:12px 0 0">' + n + ' জন পাওয়া গেছে' + (IMP.errs ? ' — <b style="color:var(--neg)">' + IMP.errs + 'টা সারিতে ভুল আছে</b>; ঠিক করে আবার পেস্ট করুন।' : ' — সব ঠিক আছে ✓') + '</p>' +
-    '<div class="pwrap"><table class="ptab"><tr><th>#</th><th>আইডি</th><th>নাম</th><th>পদ · বিভাগ</th><th>ধরন / ভিত্তি</th><th>হার</th><th>সময়</th><th>ছুটি</th><th>সমস্যা</th></tr>' +
+    '<div class="pwrap"><table class="ptab"><tr><th>#</th><th>আইডি</th><th>নাম</th><th>পদ · বিভাগ · প্রতিষ্ঠান</th><th>ধরন / ভিত্তি</th><th>হার</th><th>সময়</th><th>ছুটি</th><th>সমস্যা</th></tr>' +
     IMP.rows.map(function (r, i) {
-      return '<tr class="' + (r._e ? 'bad' : '') + '"><td class="num">' + (i + 1) + '</td><td class="num">' + esc(r.id || 'নিজে থেকে') + '</td><td>' + esc(r.name) + '</td><td>' + esc([r.desig, r.dept].filter(Boolean).join(' · ')) + '</td>' +
+      return '<tr class="' + (r._e ? 'bad' : '') + '"><td class="num">' + (i + 1) + '</td><td class="num">' + esc(r.id || 'নিজে থেকে') + '</td><td>' + esc(r.name) + '</td><td>' + esc([r.desig, r.dept, r.org].filter(Boolean).join(' · ')) + (r.sheet ? ' · পাতা ' + esc(r.sheet) : '') + '</td>' +
         '<td>' + TYPES[r.type] + '<br><small>' + BASES[r.basis] + '</small></td><td class="num">' + esc(r.amount) + (r.allow ? ' + ' + esc(r.allow) : '') + '</td>' +
-        '<td class="num">' + esc(r.tin) + '–' + esc(r.tout) + '</td><td>' + offTxt(r.off) + '</td><td class="e">' + esc(r._e) + '</td></tr>';
+        '<td class="num">' + esc(r.split ? r.tin + '–' + r.tout + ', ' + r.tin2 + '–' + r.tout2 : r.tin + '–' + r.tout) + '</td><td>' + offTxt(r.off) + '</td><td class="e">' + esc(r._e) + '</td></tr>';
     }).join('') + '</table></div>';
   $('impBtn').disabled = !n || IMP.errs > 0;
   $('impBtn').textContent = n ? n + ' জন যোগ করুন' : 'যোগ করুন';
@@ -1170,6 +1248,7 @@ function impBasis(v, type) {
   if (/টাকা|flat|fixed/.test(v)) return 'flat';
   if (/দিন|দৈনিক|day|daily/.test(v)) return 'day';
   if (/ঘণ্টা|ঘন্টা|hour/.test(v)) return 'hour';
+  if (/ক্লাস|class/.test(v)) return 'class';
   if (/কাজ|পিস|piece/.test(v)) return 'piece';
   if (/মাস|month/.test(v)) return 'month';
   return TYPE_BASIS[type];
@@ -1220,16 +1299,13 @@ function attEmps() {
   return S.emps.filter(function (e) {
     if (!inMonth(e, S.month)) return false;
     if (f.dept && e.dept !== f.dept) return false;
+    if (f.org && e.org !== f.org) return false;
     var r = rows[e.id];
     if (f.st === 'pending' && r && r.done) return false;
     if (f.st === 'done' && !(r && r.done)) return false;
-    if (q && (e.name + ' ' + e.id + ' ' + e.phone).toLowerCase().indexOf(q) === -1) return false;
+    if (q && (e.name + ' ' + e.id + ' ' + e.phone + ' পাতা' + e.sheet + ' ' + e.sheet).toLowerCase().indexOf(q) === -1) return false;
     return true;
-  }).sort(function (a, b) {
-    var x = (a.dept || '').localeCompare(b.dept || '', 'bn');
-    if (x) return x;
-    return /^\d+$/.test(a.id) && /^\d+$/.test(b.id) ? +a.id - +b.id : a.id.localeCompare(b.id);
-  });
+  }).sort(bySheet);
 }
 function attPage() {
   var loading = S.attFor !== S.month || !S.att;
@@ -1256,8 +1332,9 @@ function attListHtml() {
     '<button class="btn sm" data-a="sel-undone">↺ খুলুন</button>' +
     '<button class="btn sm" data-a="sel-off">✕</button></div>' : '';
   return '<div class="tools">' +
-      '<input class="in" id="afQ" placeholder="🔍 নাম বা আইডি" value="' + esc(S.af.q) + '">' +
+      '<input class="in" id="afQ" placeholder="🔍 নাম, আইডি বা পাতা" value="' + esc(S.af.q) + '">' +
       '<select class="sel" id="afDept"><option value="">সব বিভাগ</option>' + depts().map(function (d) { return '<option' + (S.af.dept === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+      (orgs().length > 1 ? '<select class="sel" id="afOrg"><option value="">সব প্রতিষ্ঠান</option>' + orgs().map(function (o) { return '<option' + (S.af.org === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' : '') +
       '<div class="seg" id="afSt">' + [['all', 'সব'], ['pending', 'বাকি'], ['done', 'শেষ']].map(function (o) {
         return '<button data-v="' + o[0] + '" class="' + (S.af.st === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
       (sel ? '' : '<button class="btn sm" data-a="sel-on" title="অনেকজন একসাথে শেষ চিহ্নিত করুন">☑ নির্বাচন</button>') +
@@ -1268,7 +1345,7 @@ function attListHtml() {
       if (sm) { if (sm.A) ch.push('অনু ' + sm.A); if (sm.L) ch.push('ছুটি ' + sm.L); if (sm.U) ch.push('বিনা ' + sm.U); if (sm.late) ch.push('দেরি ' + sm.late); }
       return '<div class="arow' + (S.cur && S.cur.id === e.id ? ' on' : '') + '" data-a="' + (sel ? 'sel-tog' : 'att-open') + '" data-id="' + esc(e.id) + '">' +
         (sel ? '<input type="checkbox" tabindex="-1"' + (sel[e.id] ? ' checked' : '') + '>' : '') +
-        '<span class="anm"><b>' + esc(e.name) + '</b><small>' + esc(e.id) + (e.dept ? ' · ' + esc(e.dept) : '') + (ch.length ? ' · ' + ch.join(' · ') : '') + '</small></span>' + b + '</div>';
+        '<span class="anm"><b>' + esc(e.name) + '</b><small>' + (e.sheet ? 'পাতা ' + esc(e.sheet) + ' · ' : '') + esc(e.id) + (e.dept ? ' · ' + esc(e.dept) : '') + (ch.length ? ' · ' + ch.join(' · ') : '') + '</small></span>' + b + '</div>';
     }).join('') : '<div class="empty">এই খোঁজে কাউকে পাওয়া যায়নি।</div>') + '</div>';
 }
 function refreshAttList() {
@@ -1285,11 +1362,28 @@ function makeCur(e) {
     done: r ? r.done : false, baseAt: r ? r.at : 0, savedAt: r ? r.at : 0, by: r ? r.by : '',
     dirty: false, saving: false, err: '', t: 0, p: null };
 }
-function timeOn(e) { return S.timeOn != null ? S.timeOn : (e.basis === 'hour' || e.late || e.ot); }
+function timeOn(e) { return S.timeOn != null ? S.timeOn : (e.basis === 'hour' || e.late || e.ot || e.split); }
+// হাজিরার টেবিলের কলাম — সময়ের ঘর (এক/দুই বেলা) আর ক্লাস/কাজের ঘর কর্মচারী ধরে
+function gridCfg(e) {
+  var ts = !timeOn(e) ? [] : e.split ? [['i', 'সকালে আসা', 'tin'], ['o', 'সকালে যাওয়া', 'tout'], ['i2', 'বিকালে আসা', 'tin2'], ['o2', 'বিকালে যাওয়া', 'tout2']]
+    : [['i', 'আসা', 'tin'], ['o', 'যাওয়া', 'tout']];
+  var c = [64, 178];
+  ts.forEach(function () { c.push(e.split ? 70 : 84); });
+  if (qtyOn(e)) c.push(58);
+  c.push(78);
+  // জায়গা কম হলে টেবিল পাশে সরে (কিছু কেটে যায় না) — gw = সব কলাম + মন্তব্য ১১০ + ফাঁক
+  var gw = c.reduce(function (a, b) { return a + b; }, 0) + 110 + 8 * c.length + 20;
+  return { ts: ts, q: qtyOn(e), tmpl: c.map(function (x) { return x + 'px'; }).join(' ') + ' minmax(110px,1fr)', gw: gw };
+}
+function qtyBox(e) {
+  var s = attSum(e, S.cur.month, S.cur.days), w = qtyWord(e);
+  if (s.q > 0) return '<p class="hint" style="margin-top:10px">এ মাসে মোট ' + w + ': <b class="num" style="color:var(--ink)">' + s.q + '</b> (দিনে দিনে তোলা থেকে)</p>';
+  return '<div class="g2" style="margin-top:4px"><div><label class="fl">এ মাসে মোট ' + w + ' <em>(খাতায় দিনে দিনে না থাকলে এখানে মোটটা)</em></label><input class="in num" id="e_qty" inputmode="decimal" value="' + esc(S.cur.qty || '') + '"></div></div>';
+}
 function entryHtml() {
   var c = S.cur, e = empById(c.id); if (!e) return '<div class="card empty">কর্মচারী পাওয়া যায়নি।</div>';
   var r = curRate(e.id, c.month + '-01'), list = attEmps(), i = list.findIndex(function (x) { return x.id === e.id; });
-  var tOn = timeOn(e), n = mdays(c.month);
+  var tOn = timeOn(e), n = mdays(c.month), gc = gridCfg(e);
   var rowsH = '';
   for (var d = 1; d <= n; d++) rowsH += '<div class="dr" data-d="' + d + '">' + dayRowInner(e, d) + '</div>';
   return '<div class="card">' +
@@ -1298,19 +1392,21 @@ function entryHtml() {
       '<button class="ib" data-a="ent-prev" title="আগের জন"' + (i <= 0 ? ' disabled' : '') + '>◀</button>' +
       '<button class="ib" data-a="ent-next" title="পরের জন"' + (i === -1 || i >= list.length - 1 ? ' disabled' : '') + '>▶</button></div>' +
     '<div class="einfo"><span class="tp ' + e.type + '">' + TYPES[e.type] + '</span><span class="chip">' + BASES[e.basis] + (r ? ' · <b>' + tk(r.amount) + '</b>' : '') + '</span>' +
-      '<span class="chip num">⏰ ' + esc(e.tin) + '–' + esc(e.tout) + (e.brk ? ' · বিরতি ' + e.brk + ' মি' : '') + '</span><span class="chip">ছুটি: ' + offTxt(e.off) + '</span>' +
+      (e.org ? '<span class="chip">' + esc(e.org) + '</span>' : '') + (e.sheet ? '<span class="chip acc">খাতার পাতা ' + esc(e.sheet) + '</span>' : '') +
+      '<span class="chip num">⏰ ' + esc(schedTxt(e)) + (e.brk && !e.split ? ' · বিরতি ' + e.brk + ' মি' : '') + '</span><span class="chip">ছুটি: ' + offTxt(e.off) + '</span>' +
       (e.late ? '<span class="chip warn">দেরি-কাটা চালু</span>' : '') + (e.ot ? '<span class="chip acc">ওভারটাইম চালু</span>' : '') +
       ' <button class="btn sm" data-a="emp-open" data-id="' + esc(e.id) + '" style="margin-left:auto">✏️ কর্মচারীর তথ্য</button></div>' +
     '<div class="sums" id="sums">' + sumsHtml(e) + '</div>' +
-    (e.basis === 'piece' ? '<div class="g2" style="margin-top:4px"><div><label class="fl">এ মাসে কাজের পরিমাণ (পিস/কাজ) *</label><input class="in num" id="e_qty" inputmode="decimal" value="' + esc(c.qty || '') + '"></div></div>' : '') +
+    (qtyOn(e) ? '<div id="qtyBox">' + qtyBox(e) + '</div>' : '') +
     (e.basis === 'flat' ? '<p class="hint" style="margin-top:10px">ℹ️ নির্দিষ্ট টাকার কর্মচারী — বেতনে হাজিরা লাগে না। তবু রেকর্ডের জন্য তোলা যায়, অথবা সরাসরি "শেষ" করে দিন।</p>' : '') +
     '<div class="etools"><button class="btn sm" data-a="t-tog">⏱ ' + (tOn ? 'সময়ের ঘর লুকান' : 'আসা-যাওয়ার সময় তুলুন') + '</button>' +
       '<button class="btn sm" data-a="ent-reset" title="সব ব্যতিক্রম মুছে পুরো মাস নির্ধারিত সময়ে">↺ সব আগের মতো</button><span class="grow"></span>' +
       '<span class="save-st" id="saveSt"></span></div>' +
-    (tOn ? '<div class="keys">আসার ঘরে <kbd>A</kbd> অনুপস্থিত · <kbd>L</kbd> মঞ্জুর ছুটি · <kbd>U</kbd> বিনা বেতনে · <kbd>H</kbd> অর্ধদিবস · <kbd>P</kbd> উপস্থিত — ' +
+    (tOn || qtyOn(e) ? '<div class="keys">সময়/' + qtyWord(e) + 'ের ঘরে <kbd>A</kbd> অনুপস্থিত · <kbd>L</kbd> মঞ্জুর ছুটি · <kbd>U</kbd> বিনা বেতনে · <kbd>H</kbd> অর্ধদিবস · <kbd>P</kbd> উপস্থিত — ' +
       '<kbd>0915</kbd> লিখলেই ৯:১৫ · <kbd>Enter</kbd> পরের ঘর · <kbd>↑</kbd><kbd>↓</kbd> উপরে-নিচে · ফাঁকা ঘর = নির্ধারিত সময়</div>'
       : '<div class="keys">অবস্থার বোতাম: <b>উ</b> উপস্থিত · <b>অ</b> অনুপস্থিত · <b>ছু</b> মঞ্জুর ছুটি (বেতনসহ) · <b>বি</b> বিনা বেতনে ছুটি · <b>½</b> অর্ধদিবস · <b>—</b> ছুটির দিন</div>') +
-    '<div class="dtab' + (tOn ? '' : ' nt') + '" id="dtab"><div class="drh"><span>তারিখ</span><span>অবস্থা</span><span class="tcol">আসা</span><span class="tcol">যাওয়া</span><span>ঘণ্টা</span><span>মন্তব্য</span></div>' + rowsH + '</div>' +
+    '<div class="dtab' + (tOn ? '' : ' nt') + '" id="dtab" style="--gc:' + gc.tmpl + ';--gw:' + gc.gw + 'px"><div class="drh"><span>তারিখ</span><span>অবস্থা</span>' +
+      gc.ts.map(function (t) { return '<span class="tcol">' + t[1] + '</span>'; }).join('') + (gc.q ? '<span>' + qtyWord(e) + '</span>' : '') + '<span>ঘণ্টা</span><span>মন্তব্য</span></div>' + rowsH + '</div>' +
     '<label class="fl">মাসের মন্তব্য</label><input class="in" id="e_note" maxlength="200" value="' + esc(c.note) + '" placeholder="ঐচ্ছিক">' +
     '<div class="efoot"><span class="save-st" id="saveSt2"></span><span class="grow"></span>' +
       (c.done ? '<button class="btn" data-a="ent-undone">↺ আবার খুলুন</button><button class="btn pri" data-a="ent-next2">পরের জন →</button>'
@@ -1333,15 +1429,16 @@ function dayRowInner(e, d) {
   row += '<div class="dst">' + opts.map(function (s) {
     return '<button type="button" class="' + s + (k.s === s ? ' on' : '') + '" data-st="' + s + '" title="' + ST[s].l + '">' + ST[s].s + '</button>';
   }).join('') + '</div>';
-  var work = k.s === 'P' || k.s === 'H';
-  var sched = Math.max(0, span(e.tin, e.tout) - (e.brk || 0));
-  var mins = work ? dayMin(e, k.x, k.s, sched) : 0, late = work ? dayLate(e, k.x, k.isOff, Number(S.set.lateGrace) || 0) : 0;
-  var early = work && k.x.o && !k.isOff && tmin(k.x.o) != null ? (span(e.tin, e.tout) - span(e.tin, k.x.o)) : 0;
+  var work = k.s === 'P' || k.s === 'H', gc = gridCfg(e);
+  var mins = work ? dayMin(e, k.x, k.s) : 0, late = work ? dayLate(e, k.x, k.isOff, Number(S.set.lateGrace) || 0) : 0;
+  var lastO = e.split ? 'o2' : 'o', lastT = e.split ? 'tout2' : 'tout', firstT = e.split ? 'tin2' : 'tin';
+  var early = work && k.x[lastO] && !k.isOff ? (span(e[firstT], e[lastT]) - span(e[firstT], k.x[lastO])) : 0;
   var hrs = work ? '<div class="dh">' + hm(mins) + (late ? '<em>দেরি ' + late + ' মি</em>' : early > 0 && early < 720 ? '<em>আগে গেছে ' + early + ' মি</em>' : '') + '</div>'
     : '<div class="dh" style="color:var(--s' + k.s + ')">' + ST[k.s].l + '</div>';
-  row += '<div class="tpair">' +
-    (tOn ? '<span class="tcol"><input class="ti' + (k.x.i ? ' set' : '') + '" data-f="i" inputmode="numeric" autocomplete="off" maxlength="8" value="' + esc(k.x.i || '') + '" placeholder="' + (work ? esc(e.tin) : '') + '"' + (work ? '' : ' disabled') + '></span>' +
-      '<span class="tcol"><input class="ti' + (k.x.o ? ' set' : '') + '" data-f="o" inputmode="numeric" autocomplete="off" maxlength="8" value="' + esc(k.x.o || '') + '" placeholder="' + (work ? esc(e.tout) : '') + '"' + (work ? '' : ' disabled') + '></span>' : '') +
+  row += '<div class="tpair">' + gc.ts.map(function (t) {
+      return '<span class="tcol"><input class="ti' + (k.x[t[0]] ? ' set' : '') + '" data-f="' + t[0] + '" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="' + t[1] + '" value="' + esc(k.x[t[0]] || '') + '" placeholder="' + (work ? esc(e[t[2]]) : '') + '"' + (work ? '' : ' disabled') + '></span>';
+    }).join('') +
+    (gc.q ? '<span class="tcol tq"><input class="ti' + (k.x.q ? ' set' : '') + '" data-f="q" inputmode="decimal" autocomplete="off" maxlength="6" aria-label="' + qtyWord(e) + '" value="' + esc(k.x.q || '') + '" placeholder="' + (work ? qtyWord(e) : '') + '"' + (work ? '' : ' disabled') + '></span>' : '') +
     hrs + '</div>';
   row += '<div class="tnw"><input class="tn" data-f="n" maxlength="60" value="' + esc(k.x.n || '') + '" placeholder="মন্তব্য"></div>';
   return row;
@@ -1352,6 +1449,7 @@ function sumsHtml(e) {
   if (s.OW) it.push(['p', 'ছুটির দিনে কাজ', s.OW]);
   it.push(['a', 'দেরি', s.late + (s.lateMin ? '<em style="font-size:12px;font-weight:600;color:var(--ink3)"> (' + s.lateMin + ' মি)</em>' : '')]);
   it.push(['', 'মোট ঘণ্টা', s.hours]);
+  if (qtyOn(e)) it.push(['p', 'মোট ' + qtyWord(e), s.q || S.cur.qty || 0]);
   return it.map(function (x) { return '<div class="sum ' + x[0] + '"><small>' + x[1] + '</small><b class="num">' + x[2] + '</b></div>'; }).join('');
 }
 function updRow(d) {
@@ -1404,7 +1502,7 @@ function setStatus(d, s) {
   var x = S.cur.days[d] || {};
   var def = k.isOff ? 'O' : 'P';
   if (s === def) delete x.s; else x.s = s;
-  if (s !== 'P' && s !== 'H') { delete x.i; delete x.o; }
+  if (s !== 'P' && s !== 'H') { delete x.i; delete x.o; delete x.i2; delete x.o2; delete x.q; }
   if (Object.keys(x).length) S.cur.days[d] = x; else delete S.cur.days[d];
   updRow(d); markDirty();
 }
@@ -1415,8 +1513,16 @@ function commitField(inp) {
     if (v === (x.n || '')) return true;
     if (v) x.n = v.slice(0, 60); else delete x.n;
   } else {
-    var t = v ? parseTime(v, tmin(f === 'i' ? e.tin : e.tout)) : '';
-    if (t === null) { inp.classList.add('bad'); toast('সময়টা বোঝা যায়নি — যেমন 0915 বা 9:15 লিখুন।'); return false; }
+    var t;
+    if (f === 'q') {
+      t = v ? Number(bnDigits(v)) : '';
+      if (t !== '' && !(t >= 0 && t <= 1000)) { inp.classList.add('bad'); toast('সংখ্যাটা বোঝা যায়নি।'); return false; }
+      if (t === 0) t = '';
+    } else {
+      var aft = f === 'o' ? tmin(x.i || e.tin) : f === 'o2' ? tmin(x.i2 || e.tin2) : f === 'i2' ? tmin(x.o || e.tout) : null;
+      t = v ? parseTime(v, tmin(e[{ i: 'tin', o: 'tout', i2: 'tin2', o2: 'tout2' }[f]]), aft) : '';
+      if (t === null) { inp.classList.add('bad'); toast('সময়টা বোঝা যায়নি — যেমন 0915 বা 9:15 লিখুন।'); return false; }
+    }
     inp.classList.remove('bad');
     if (t === (x[f] || '')) { inp.value = t; return true; }
     if (t) x[f] = t; else delete x[f];
@@ -1430,6 +1536,7 @@ function commitField(inp) {
     if (nh && oh) oh.outerHTML = nh.outerHTML;
     inp.value = x[f] || ''; inp.classList.toggle('set', !!x[f]);
     $('sums').innerHTML = sumsHtml(e);
+    if (f === 'q' && $('qtyBox')) { $('qtyBox').innerHTML = qtyBox(e); bindQty(); }
   }
   return true;
 }
@@ -1447,6 +1554,7 @@ function moveFocus(inp, how) {
 function nextRowSameField(d, f) {
   var all = Array.prototype.slice.call(document.querySelectorAll('#dtab .ti[data-f="' + f + '"]:not(:disabled)'));
   for (var i = 0; i < all.length; i++) { if (+all[i].closest('.dr').getAttribute('data-d') > d) { all[i].focus(); all[i].select(); return; } }
+  var any = document.querySelector('.dr[data-d="' + (d + 1) + '"] .ti:not(:disabled)'); if (any) { any.focus(); any.select(); }
 }
 function afterAtt() {
   bindAttList();
@@ -1472,13 +1580,18 @@ function afterAtt() {
     var d = +t.closest('.dr').getAttribute('data-d'), f = t.getAttribute('data-f');
     var k = (ev.key || '').toLowerCase();
     if (KEY_ST[k] && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
-      ev.preventDefault(); setStatus(d, KEY_ST[k]); nextRowSameField(d, 'i'); return;
+      ev.preventDefault(); setStatus(d, KEY_ST[k]); nextRowSameField(d, f); return;
     }
     if (ev.key === 'Enter') { ev.preventDefault(); if (commitField(t)) moveFocus(t, 'next'); }
     else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); if (commitField(t)) moveFocus(t, ev.key === 'ArrowDown' ? 'down' : 'up'); }
   });
-  var q = $('e_qty'); if (q) q.addEventListener('input', function () { S.cur.qty = Number(bnDigits(q.value).replace(/[^\d.]/g, '')) || 0; markDirty(); });
+  bindQty();
   var nt = $('e_note'); if (nt) nt.addEventListener('input', function () { S.cur.note = nt.value; markDirty(); });
+}
+function bindQty() {
+  var q = $('e_qty'); if (q) q.addEventListener('input', function () {
+    S.cur.qty = Number(bnDigits(q.value).replace(/[^\d.]/g, '')) || 0; markDirty(); $('sums').innerHTML = sumsHtml(empById(S.cur.id));
+  });
 }
 function bindAttList() {
   var q = $('afQ');
@@ -1520,7 +1633,10 @@ function setPage() {
   return '<div class="ph"><div><h2>সেটিংস</h2><p>সব নিয়ম এখান থেকে — শিট বা কোড ধরতে হবে না।</p></div></div>' +
     '<div class="cols2">' +
     '<div>' +
-      '<div class="card"><h3>🏢 প্রতিষ্ঠান</h3><label class="fl">প্রতিষ্ঠানের নাম</label><div style="display:flex;gap:8px"><input class="in" id="s_org" maxlength="80" value="' + esc(s.org) + '"><button class="btn" data-a="s-org">সেভ</button></div></div>' +
+      '<div class="card"><h3>🏢 প্রতিষ্ঠান</h3><p class="hint">একই মালিকের সব প্রতিষ্ঠানের বেতন একসাথে হয় — প্রত্যেক কর্মচারী কোনটার, তা কর্মচারীর তথ্যে বেছে নেওয়া যায়।</p>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + (orgs().map(function (d, i) { return '<span class="chip acc">' + esc(d) + '<button data-a="s-inst-rm" data-i="' + i + '" title="বাদ দিন">✕</button></span>'; }).join('') || '<span class="hint">কোনো প্রতিষ্ঠান নেই।</span>') + '</div>' +
+        '<div style="display:flex;gap:8px"><input class="in" id="s_inst" maxlength="60" placeholder="নতুন প্রতিষ্ঠান"><button class="btn" data-a="s-inst-add">＋ যোগ</button></div>' +
+        '<label class="fl" style="margin-top:16px">অ্যাপের মাথায় দেখানো নাম</label><div style="display:flex;gap:8px"><input class="in" id="s_org" maxlength="80" value="' + esc(s.org) + '"><button class="btn" data-a="s-org">সেভ</button></div></div>' +
       '<div class="card"><h3>🗂️ বিভাগ</h3><p class="hint">কর্মচারী যোগ করার সময় এগুলো বেছে নেওয়া যাবে।</p>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + ((s.depts || []).map(function (d, i) { return '<span class="chip acc">' + esc(d) + '<button data-a="s-dept-rm" data-i="' + i + '" title="বাদ দিন">✕</button></span>'; }).join('') || '<span class="hint">এখনো কোনো বিভাগ নেই।</span>') + '</div>' +
         '<div style="display:flex;gap:8px"><input class="in" id="s_dept" maxlength="40" placeholder="নতুন বিভাগ"><button class="btn" data-a="s-dept-add">＋ যোগ</button></div></div>' +
@@ -1616,7 +1732,9 @@ document.addEventListener('click', function (ev) {
     var y = $('empForm').parentNode.scrollTop; drawEmpForm(); $('empForm').parentNode.scrollTop = y; return;
   }
   var fw = t.closest('[data-fsw]');
-  if (fw && F) { readEmpForm(); var key = fw.getAttribute('data-fsw'); F.e[key] = !F.e[key]; var y2 = $('empForm').parentNode.scrollTop; drawEmpForm(); $('empForm').parentNode.scrollTop = y2; return; }
+  if (fw && F) {
+    readEmpForm(); var key = fw.getAttribute('data-fsw'); F.e[key] = !F.e[key];
+    if (key === 'split' && F.e.split && !F.e.tin2) { F.e.tin2 = '14:00'; F.e.tout2 = F.e.tout > '14:00' ? F.e.tout : '17:00'; if (F.e.tout > '13:00') F.e.tout = '13:00'; } var y2 = $('empForm').parentNode.scrollTop; drawEmpForm(); $('empForm').parentNode.scrollTop = y2; return; }
   var od = t.closest('#f_off button, #s_off button'); if (od) { od.classList.toggle('on'); if (F && od.closest('#f_off')) F.e.off = days7Val('f_off'); return; }
   var sg = t.closest('.seg button');
   if (sg && sg.parentNode.id === 'efSt') { S.ef.st = sg.getAttribute('data-v'); render(); return; }
@@ -1675,7 +1793,7 @@ document.addEventListener('click', function (ev) {
     case 'ent-next': case 'ent-next2': entryNav(1); break;
     case 'ent-done':
       var e = empById(S.cur.id);
-      if (e && e.basis === 'piece' && !S.cur.qty && !confirm('কাজের পরিমাণ ০ — তবু শেষ করবেন?')) return;
+      if (e && qtyOn(e) && !S.cur.qty && !attSum(e, S.cur.month, S.cur.days).q && !confirm('এ মাসে মোট ' + qtyWord(e) + ' ০ — তবু শেষ করবেন?')) return;
       a.disabled = true;
       doSave(true).then(function () { entryNav(1, true); }, function (err) { a.disabled = false; toast(err.message.replace(/^CONFLICT:\s*/, ''), 5000); }); break;
     case 'ent-undone':
@@ -1692,6 +1810,13 @@ document.addEventListener('click', function (ev) {
     case 'sel-undone': bulkDone(false); break;
 
     case 's-org': saveSet({ org: $('s_org').value }); break;
+    case 's-inst-add':
+      var ni = $('s_inst').value.trim(); if (!ni) return;
+      saveSet({ orgs: orgs().concat([ni]) }, '✓ প্রতিষ্ঠান যোগ হয়েছে'); break;
+    case 's-inst-rm':
+      var oi = orgs().slice(), on = oi[+a.getAttribute('data-i')];
+      if (S.emps.some(function (x) { return x.org === on; }) && !confirm(on + ' — এই প্রতিষ্ঠানে কর্মচারী আছে। তালিকা থেকে বাদ দিলেও তাঁদের তথ্যে নামটা থেকে যাবে। বাদ দেবেন?')) return;
+      oi.splice(+a.getAttribute('data-i'), 1); saveSet({ orgs: oi }); break;
     case 's-dept-add':
       var nd = $('s_dept').value.trim(); if (!nd) return;
       saveSet({ depts: (S.set.depts || []).concat([nd]) }, '✓ বিভাগ যোগ হয়েছে'); break;
@@ -1723,20 +1848,19 @@ document.addEventListener('click', function (ev) {
 document.addEventListener('input', function (ev) {
   var t = ev.target;
   if (t.id === 'efQ') { S.ef.q = t.value; refreshEmpList(); }
-  else if (F && (t.id === 'f_tin' || t.id === 'f_tout' || t.id === 'f_brk')) {
-    readEmpForm();
-    var h = t.closest('.sheet').querySelector('#f_brk').closest('.g3').nextElementSibling;
-    if (h) h.innerHTML = 'দৈনিক কর্মঘণ্টা: <b class="num">' + hm(Math.max(0, span(F.e.tin, F.e.tout) - (Number(F.e.brk) || 0))) + '</b>';
-  }
+  else if (F && /^f_(tin|tout|tin2|tout2|brk)$/.test(t.id)) { readEmpForm(); if ($('f_hrs')) $('f_hrs').innerHTML = hrsTxt(F.e); }
 });
 document.addEventListener('change', function (ev) {
   var t = ev.target;
   if (t.id === 'efDept') { S.ef.dept = t.value; refreshEmpList(); }
   else if (t.id === 'efType') { S.ef.type = t.value; refreshEmpList(); }
+  else if (t.id === 'efOrg') { S.ef.org = t.value; refreshEmpList(); }
+  else if (t.id === 'afOrg') { S.af.org = t.value; refreshAttList(); }
 });
 document.addEventListener('keydown', function (ev) {
   if (ev.key === 'Escape' && $('ov')) closeOv();
   if (ev.key === 'Enter' && ev.target.id === 's_dept') { ev.preventDefault(); document.querySelector('[data-a="s-dept-add"]').click(); }
+  if (ev.key === 'Enter' && ev.target.id === 's_inst') { ev.preventDefault(); document.querySelector('[data-a="s-inst-add"]').click(); }
 });
 $('menuBtn').addEventListener('click', function (e) { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; });
 window.addEventListener('beforeunload', function (e) { if (S.cur && (S.cur.dirty || S.cur.saving)) { e.preventDefault(); e.returnValue = ''; } });
