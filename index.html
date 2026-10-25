@@ -247,7 +247,7 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 [data-theme=dark] .tp.fixed{background:#0c3a52;color:#7dd3fc} [data-theme=dark] .tp.hourly{background:#47330c;color:#fcd34d}
 [data-theme=dark] .tp.part{background:#33255e;color:#c4b5fd} [data-theme=dark] .tp.contract{background:#123d24;color:#86efac}
 .lfoot{padding:10px 16px;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line)}
-.prow{display:grid;grid-template-columns:minmax(0,2fr) 110px 110px 100px 100px 120px 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.prow{display:grid;grid-template-columns:minmax(0,2fr) 96px 100px 90px 90px 90px 110px 118px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
 .prow:hover{background:var(--soft)} .prow small{display:block;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow>span{min-width:0} .prow .pf{display:flex;gap:4px;justify-content:flex-end}
 .phead{font-size:12px;font-weight:700;color:var(--ink3);background:var(--soft);cursor:default} .phead:hover{background:var(--soft)}
@@ -1696,7 +1696,7 @@ function bulkDone(done) {
 
 /* ═════════ বেতন ═════════
  * হিসাব সার্ভারে (Pay ফাইল) — এখানে শুধু দেখানো, সমন্বয়, তৈরি/অনুমোদনের বোতাম */
-S.pay = null; S.payFor = ''; S.pf = { q: '', org: '', flag: false };
+S.pay = null; S.payFor = ''; S.pf = { q: '', org: '', flag: false }; S.payTab = 'pay'; S.adv = null;
 function ensurePay(month, force) {
   if (!force && S.payFor === month && S.pay) return Promise.resolve(S.pay);
   S.payErr = '';
@@ -1729,9 +1729,11 @@ function flagIcons(r) {
          (warn ? '<span class="chip warn" title="' + esc(r.flags.map(function (f) { return f.t; }).join('\n')) + '">⚠️ ' + warn + '</span>' : '');
 }
 function payPage() {
+  if (S.payTab === 'adv') return advPage();
   var d = S.payFor === S.month ? S.pay : null, st = d && d.st;
   var dt = function (t) { return t ? new Date(t).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''; };
-  var head = '<div class="ph"><div><h2>বেতন</h2><p>হাজিরা আর বেতনের হার থেকে প্রত্যেকের হিসাব — প্রতিটা টাকার পাশে কীভাবে এল লেখা থাকে।</p></div></div>' +
+  var head = '<div class="ph"><div><h2>বেতন</h2><p>হাজিরা আর বেতনের হার থেকে প্রত্যেকের হিসাব — প্রতিটা টাকার পাশে কীভাবে এল লেখা থাকে।</p></div>' +
+    '<div class="seg" id="payTab"><button data-v="pay" class="' + (S.payTab !== 'adv' ? 'on' : '') + '">💰 মাসের বেতন</button><button data-v="adv" class="' + (S.payTab === 'adv' ? 'on' : '') + '">💵 অগ্রিম</button></div></div>' +
     '<div class="mbar" style="margin-bottom:14px"><div class="mnav"><button data-a="m-prev" title="আগের মাস">◀</button><b>' + monthLabel(S.month) + '</b><button data-a="m-next" title="পরের মাস">▶</button></div>' +
     (st ? (st.st === 'approved' ? '<span class="chip ok">🔒 অনুমোদিত · ' + esc(st.ok.by) + ' · ' + dt(st.ok.at) + '</span>' : '<span class="chip warn">✏️ খসড়া · ' + esc(st.gen.by) + ' · ' + dt(st.gen.at) + '</span>') : '') + '</div>';
   if (S.payErr && !d) return head + '<div class="err">' + esc(S.payErr) + '</div>';
@@ -1746,9 +1748,10 @@ function payPage() {
     return head + '<div class="card empty">' + monthLabel(S.month) + '-এর বেতন এখনো তৈরি হয়নি।' + attPend +
       (can('pay') ? '<br><br><button class="btn pri" data-a="pay-gen">⚙️ বেতন তৈরি করুন</button>' : '<br>হিসাবরক্ষক বা মালিক তৈরি করবেন।') + '</div>';
   }
-  var rows = d.rows, total = 0, byPay = {}, byOrg = {}, nBad = 0, nWarn = 0;
+  var rows = d.rows, total = 0, byPay = {}, byOrg = {}, nBad = 0, nWarn = 0, paidSum = 0, paidN = 0;
   rows.forEach(function (r) {
     total += r.net;
+    if (r.paid) { paidSum += r.net; paidN++; }
     byPay[r.pay || 'cash'] = (byPay[r.pay || 'cash'] || 0) + r.net;
     var o = r.org || 'প্রতিষ্ঠান দেওয়া নেই'; byOrg[o] = (byOrg[o] || 0) + r.net;
     if (r.flags.some(function (f) { return f.bad; })) nBad++; else if (r.flags.length) nWarn++;
@@ -1757,6 +1760,8 @@ function payPage() {
   var acts = '<div class="acts">' +
     (draft && can('pay') ? '<button class="btn" data-a="pay-gen">⟳ আবার হিসাব</button>' : '') +
     (draft && can('approve') ? '<button class="btn pri" data-a="pay-approve"' + (st.dirty ? ' disabled title="আগে আবার হিসাব করুন"' : '') + '>✓ অনুমোদন — মাস তালাবদ্ধ</button>' : '') +
+    (!draft && can('pay') ? '<button class="btn pri" data-a="pay-markopen">✓ পরিশোধ</button>' : '') +
+    '<button class="btn" data-a="pay-out">📤 প্রিন্ট ও তালিকা</button>' +
     (!draft && can('approve') ? '<button class="btn" data-a="pay-unlock">🔓 তালা খুলুন</button>' : '') + '</div>';
   var list = payRowsF();
   return head +
@@ -1765,8 +1770,10 @@ function payPage() {
     '<div class="stats">' +
       '<div class="stat"><i>💰</i><div><small>মোট পাওনা</small><b class="num">' + tk(total) + '</b></div></div>' +
       '<div class="stat"><i>👥</i><div><small>কর্মচারী</small><b class="num">' + rows.length + '</b></div></div>' +
-      '<div class="stat"><i>⛔</i><div><small>জরুরি সমস্যা</small><b class="num" style="color:' + (nBad ? 'var(--neg)' : 'inherit') + '">' + nBad + '</b></div></div>' +
-      '<div class="stat"><i>⚠️</i><div><small>দেখে নেওয়ার মতো</small><b class="num" style="color:' + (nWarn ? 'var(--warn)' : 'inherit') + '">' + nWarn + '</b></div></div>' +
+      (draft ? '<div class="stat"><i>⛔</i><div><small>জরুরি সমস্যা</small><b class="num" style="color:' + (nBad ? 'var(--neg)' : 'inherit') + '">' + nBad + '</b></div></div>' +
+      '<div class="stat"><i>⚠️</i><div><small>দেখে নেওয়ার মতো</small><b class="num" style="color:' + (nWarn ? 'var(--warn)' : 'inherit') + '">' + nWarn + '</b></div></div>'
+      : '<div class="stat"><i>✅</i><div><small>পরিশোধ হয়েছে (' + paidN + ' জন)</small><b class="num" style="color:var(--pos)">' + tk(paidSum) + '</b></div></div>' +
+      '<div class="stat"><i>⏳</i><div><small>পরিশোধ বাকি (' + (rows.length - paidN) + ' জন)</small><b class="num" style="color:' + (total - paidSum ? 'var(--warn)' : 'inherit') + '">' + tk(total - paidSum) + '</b></div></div>') +
     '</div>' +
     '<div class="cols2" style="margin-bottom:14px">' +
       '<div class="card"><h3>পরিশোধের পদ্ধতি অনুযায়ী</h3>' + Object.keys(PAYS).filter(function (k) { return byPay[k]; }).map(function (k) {
@@ -1787,7 +1794,7 @@ function payPage() {
 function payListHtml(list) {
   if (!list.length) return '<div class="empty">এই খোঁজে কাউকে পাওয়া যায়নি।</div>';
   var sum = 0; list.forEach(function (r) { sum += r.net; });
-  return '<div class="phead prow"><span>নাম</span><span>ভিত্তি</span><span>আয়</span><span>কাটা</span><span>সমন্বয়</span><span>মোট পাওনা</span><span></span></div>' +
+  return '<div class="phead prow"><span>নাম</span><span>ভিত্তি</span><span>আয়</span><span>কাটা</span><span>সমন্বয়</span><span>অগ্রিম</span><span>মোট পাওনা</span><span></span></div>' +
     list.map(function (r) {
       return '<div class="prow" data-a="pay-open" data-id="' + esc(r.emp) + '">' +
         '<span><b>' + esc(r.name) + '</b><small>' + esc(r.emp) + (r.org ? ' · ' + esc(r.org) : '') + ' · ' + (PAYS[r.pay] || '') + '</small></span>' +
@@ -1795,8 +1802,9 @@ function payListHtml(list) {
         '<span class="num pm">' + tk(r.earn) + '</span>' +
         '<span class="num pm" style="color:' + (r.ded ? 'var(--neg)' : 'var(--ink3)') + '">' + (r.ded ? '−' + tk(r.ded) : '—') + '</span>' +
         '<span class="num pm" style="color:' + (r.adj ? (r.adj > 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--ink3)') + '">' + (r.adj ? (r.adj > 0 ? '+' : '−') + tk(Math.abs(r.adj)) : '—') + '</span>' +
+        '<span class="num pm" style="color:' + (r.adv ? 'var(--neg)' : 'var(--ink3)') + '">' + (r.adv ? '−' + tk(r.adv) : '—') + '</span>' +
         '<span class="num"><b>' + tk(r.net) + '</b></span>' +
-        '<span class="pf">' + flagIcons(r) + '</span></div>';
+        '<span class="pf">' + (r.paid ? '<span class="chip ok" title="' + esc(r.paidBy + (r.paidRef ? ' · ' + r.paidRef : '')) + '">✓ পরিশোধ</span>' : flagIcons(r)) + '</span></div>';
     }).join('') + '<div class="lfoot">' + list.length + ' জন · মোট <b class="num">' + tk(sum) + '</b></div>';
 }
 function refreshPayList() { if ($('payList')) $('payList').innerHTML = payListHtml(payRowsF()); }
@@ -1822,6 +1830,7 @@ function drawPayDetail() {
     }).join('') +
     '<div class="pl tot"><span>আয় ' + tk(r.earn) + ' − কাটা ' + tk(r.ded) + (r.adj ? (r.adj > 0 ? ' + ' : ' − ') + 'সমন্বয় ' + tk(Math.abs(r.adj)) : '') + '</span><b class="num">' + tk(r.net) + '</b></div></div>' +
     '<p class="hint" style="margin-top:8px">পরিশোধ: ' + (PAYS[r.pay] || '—') + (r.acct ? ' · ' + esc(r.acct) : '') + ' · <a href="#att/' + encodeURIComponent(r.emp) + '" data-a="close">🗓️ এ মাসের হাজিরা দেখুন</a></p>' +
+    advBlock(r, draft) + paidBlock(r, draft) +
     '<div class="sh-sec">সমন্বয় (বোনাস / অন্যান্য কর্তন)</div>' +
     (adj.length ? '<div class="rates">' + adj.map(function (a) {
       return '<div class="rate"><span><b class="num" style="color:' + (a.amount > 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (a.amount > 0 ? '+' : '−') + tk(Math.abs(a.amount)) + '</b> — ' + esc(a.reason) + '<small>' + esc(a.by) + '</small></span>' +
@@ -1830,8 +1839,213 @@ function drawPayDetail() {
     (draft && can('pay') ? '<div class="addr" style="grid-template-columns:auto 1fr 2fr auto"><div class="seg" style="align-self:end"><button type="button" data-a="adj-sign" data-v="1" class="' + (PF.sign > 0 ? 'on' : '') + '">＋ যোগ</button><button type="button" data-a="adj-sign" data-v="-1" class="' + (PF.sign < 0 ? 'on' : '') + '">− কাটা</button></div>' +
       '<div><label class="fl">টাকা</label><input class="in num" id="adj_amt" inputmode="decimal"></div>' +
       '<div><label class="fl">কারণ</label><input class="in" id="adj_rs" maxlength="100" placeholder="যেমন: ঈদ বোনাস"></div>' +
-      '<button class="btn" type="button" data-a="adj-add">যোগ করুন</button></div>' : '');
+      '<button class="btn" type="button" data-a="adj-add">যোগ করুন</button></div>' : '') +
+    '<div class="sh-f"><button class="btn" type="button" data-a="slip-one">🧾 রসিদ প্রিন্ট</button><span class="grow"></span><button class="btn" type="button" data-a="close">বন্ধ করুন</button></div>';
 }
+function advBlock(r, draft) {
+  var o = (S.pay.advs || {})[r.emp];
+  if (!o) return '';
+  var mode = o.manual === null ? 'auto' : o.manual === 0 ? 'none' : o.manual >= o.bal ? 'full' : 'part';
+  return '<div class="sh-sec">অগ্রিম</div><p class="hint">এ মাসের শুরুতে বাকি <b class="num" style="color:var(--ink)">' + tk(o.bal) + '</b>' +
+    (o.auto ? ' · মাসিক কিস্তি ' + tk(o.auto) : ' · কিস্তি ঠিক করা নেই') + ' · এ মাসে কাটা <b class="num" style="color:var(--neg)">' + tk(r.adv) + '</b></p>' +
+    (draft && can('pay') ? '<div class="seg" style="margin-top:8px">' + [['auto', 'কিস্তি অনুযায়ী'], ['full', 'পুরোটা'], ['part', 'কিছু অংশ'], ['none', 'এবার না']].map(function (x) {
+      return '<button type="button" data-a="advrec" data-v="' + x[0] + '" class="' + (mode === x[0] ? 'on' : '') + '">' + x[1] + '</button>';
+    }).join('') + '</div>' +
+    (mode === 'part' || PF.part ? '<div style="display:flex;gap:8px;margin-top:8px"><input class="in num" id="advPart" inputmode="decimal" placeholder="কত টাকা" value="' + (mode === 'part' ? o.manual : '') + '"><button class="btn" type="button" data-a="advrec-part">ঠিক আছে</button></div>' : '') : '');
+}
+function paidBlock(r, draft) {
+  if (draft) return '';
+  var dt = r.paidAt ? new Date(r.paidAt).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+  return '<div class="sh-sec">পরিশোধ</div>' + (r.paid
+    ? '<p class="hint">✅ পরিশোধ হয়েছে · ' + esc(r.paidBy) + ' · ' + dt + (r.paidRef ? ' · লেনদেন ' + esc(r.paidRef) : '') + '</p>' +
+      (can('pay') ? '<button class="btn sm red" type="button" data-a="paid-undo" style="margin-top:6px">পরিশোধ চিহ্ন তুলুন</button>' : '')
+    : (can('pay') ? '<div style="display:flex;gap:8px;margin-top:4px"><input class="in" id="paidRef" maxlength="60" placeholder="লেনদেন নম্বর (ঐচ্ছিক) — বিকাশ TrxID / ব্যাংক রেফারেন্স"><button class="btn pri" type="button" data-a="paid-one">✓ পরিশোধ হয়েছে</button></div>' : '<p class="hint">এখনো পরিশোধ হয়নি।</p>'));
+}
+
+/* ---------- 💵 অগ্রিম ভাগ ---------- */
+function ensureAdv(force) {
+  if (S.adv && !force) return Promise.resolve(S.adv);
+  return callServer('apiAdvList', []).then(function (d) { S.adv = d; return d; });
+}
+function advPage() {
+  var head = '<div class="ph"><div><h2>অগ্রিম</h2><p>কে কত অগ্রিম নিয়েছেন, কত বাকি — বেতনের সময় কিস্তি নিজে থেকে কাটে।</p></div>' +
+    '<div class="seg" id="payTab"><button data-v="pay">💰 মাসের বেতন</button><button data-v="adv" class="on">💵 অগ্রিম</button></div></div>';
+  if (!S.adv) { ensureAdv().then(render, function (err) { toast(err.message, 4500); }); return head + '<div class="card"><div class="sk"></div><div class="sk"></div></div>'; }
+  var d = S.adv, ids = Object.keys(d.bal).filter(function (k) { return d.bal[k] > 0.001; });
+  var total = ids.reduce(function (a, k) { return a + d.bal[k]; }, 0);
+  var given = {}, last = {};
+  d.adv.forEach(function (a) { given[a.emp] = (given[a.emp] || 0) + a.amount; if (!last[a.emp] || a.date > last[a.emp]) last[a.emp] = a.date; });
+  var recd = {}; d.rec.forEach(function (r) { recd[r.emp] = (recd[r.emp] || 0) + r.amount; });
+  return head +
+    '<div class="stats" style="grid-template-columns:repeat(3,1fr)">' +
+      '<div class="stat"><i>💵</i><div><small>মোট বাকি অগ্রিম</small><b class="num">' + tk(total) + '</b></div></div>' +
+      '<div class="stat"><i>👥</i><div><small>যাঁদের বাকি আছে</small><b class="num">' + ids.length + '</b></div></div>' +
+      '<div class="stat"><i>🧾</i><div><small>মোট অগ্রিম দেওয়া হয়েছে</small><b class="num">' + d.adv.length + 'টা</b></div></div>' +
+    '</div>' +
+    '<div class="tools" style="justify-content:flex-end">' + (can('pay') ? '<button class="btn pri" data-a="adv-new">＋ অগ্রিম দিন</button>' : '') + '</div>' +
+    '<div class="card"><h3>বাকি আছে</h3>' + (ids.length ? '<div class="rates">' + ids.sort(function (a, b) { return d.bal[b] - d.bal[a]; }).map(function (id) {
+      var e = empById(id) || { name: id };
+      return '<div class="rate"><span><b>' + esc(e.name) + '</b> <span class="num">(' + esc(id) + ')</span><small>দেওয়া ' + tk(given[id] || 0) + ' · কাটা হয়েছে ' + tk(recd[id] || 0) + ' · শেষ অগ্রিম ' + dateLabel(last[id]) + '</small></span><b class="num" style="color:var(--warn)">' + tk(d.bal[id]) + '</b></div>';
+    }).join('') + '</div>' : '<p class="hint" style="margin-top:8px">কারো কোনো অগ্রিম বাকি নেই।</p>') + '</div>' +
+    '<div class="card"><h3>সব অগ্রিম</h3>' + (d.adv.length ? '<div class="rates">' + d.adv.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (a) {
+      var e = empById(a.emp) || { name: a.emp };
+      return '<div class="rate"><span><b>' + esc(e.name) + '</b> — <b class="num">' + tk(a.amount) + '</b>' + (a.inst ? ' <span class="chip">কিস্তি ' + tk(a.inst) + '</span>' : '') +
+        '<small>' + dateLabel(a.date) + ' · ' + esc(a.reason) + ' · ' + esc(a.by) + '</small></span>' +
+        (can('pay') ? '<button class="x" type="button" data-a="adv-del" data-v="' + esc(a.avid) + '" title="মুছুন">✕</button>' : '') + '</div>';
+    }).join('') + '</div>' : '<p class="hint" style="margin-top:8px">এখনো কোনো অগ্রিম দেওয়া হয়নি।</p>') + '</div>';
+}
+function openAdvForm() {
+  var opts = S.emps.filter(function (e) { return e.active; }).map(function (e) { return '<option value="' + esc(e.id + ' · ' + e.name) + '">'; }).join('');
+  openSheet('＋ অগ্রিম দিন', '<label class="fl">কর্মচারী *</label><input class="in" id="av_emp" list="avList" placeholder="নাম বা আইডি লিখে বাছুন"><datalist id="avList">' + opts + '</datalist>' +
+    '<div class="g3"><div><label class="fl">তারিখ *</label><input class="in" id="av_date" type="date" value="' + todayStr() + '"></div>' +
+    '<div><label class="fl">টাকা *</label><input class="in num" id="av_amt" inputmode="decimal"></div>' +
+    '<div><label class="fl">মাসিক কিস্তি <em>(ঐচ্ছিক)</em></label><input class="in num" id="av_inst" inputmode="decimal" placeholder="যেমন 1000"></div></div>' +
+    '<label class="fl">কারণ *</label><input class="in" id="av_rs" maxlength="100" placeholder="যেমন: চিকিৎসা">' +
+    '<p class="hint" style="margin-top:8px">কিস্তি দিলে প্রতি মাসের বেতন থেকে নিজে থেকে কাটবে; না দিলে বেতনের সময় কত কাটা হবে ঠিক করতে বলবে।</p>' +
+    '<div class="sh-f"><span class="grow"></span><button class="btn" data-a="close">বাতিল</button><button class="btn pri" data-a="adv-save" id="avBtn">✓ সেভ করুন</button></div>');
+}
+
+/* ---------- 📤 প্রিন্ট ও তালিকা ---------- */
+var BN_NUM = ('শূন্য এক দুই তিন চার পাঁচ ছয় সাত আট নয় দশ এগারো বারো তেরো চৌদ্দ পনেরো ষোলো সতেরো আঠারো উনিশ বিশ একুশ বাইশ তেইশ চব্বিশ পঁচিশ ছাব্বিশ সাতাশ আটাশ উনত্রিশ ' +
+  'ত্রিশ একত্রিশ বত্রিশ তেত্রিশ চৌত্রিশ পঁয়ত্রিশ ছত্রিশ সাঁইত্রিশ আটত্রিশ উনচল্লিশ চল্লিশ একচল্লিশ বিয়াল্লিশ তেতাল্লিশ চুয়াল্লিশ পঁয়তাল্লিশ ছেচল্লিশ সাতচল্লিশ আটচল্লিশ উনপঞ্চাশ ' +
+  'পঞ্চাশ একান্ন বাহান্ন তিপ্পান্ন চুয়ান্ন পঞ্চান্ন ছাপ্পান্ন সাতান্ন আটান্ন উনষাট ষাট একষট্টি বাষট্টি তেষট্টি চৌষট্টি পঁয়ষট্টি ছেষট্টি সাতষট্টি আটষট্টি উনসত্তর ' +
+  'সত্তর একাত্তর বাহাত্তর তিয়াত্তর চুয়াত্তর পঁচাত্তর ছিয়াত্তর সাতাত্তর আটাত্তর উনআশি আশি একাশি বিরাশি তিরাশি চুরাশি পঁচাশি ছিয়াশি সাতাশি আটাশি উননব্বই ' +
+  'নব্বই একানব্বই বিরানব্বই তিরানব্বই চুরানব্বই পঁচানব্বই ছিয়ানব্বই সাতানব্বই আটানব্বই নিরানব্বই').split(' ');
+// টাকার অঙ্ক কথায় — ১৬০০০ → "ষোলো হাজার"
+function bnWords(n) {
+  n = Math.round(Math.abs(Number(n) || 0));
+  if (!n) return BN_NUM[0];
+  var out = [], cr = Math.floor(n / 1e7); n %= 1e7;
+  var lk = Math.floor(n / 1e5); n %= 1e5;
+  var th = Math.floor(n / 1e3); n %= 1e3;
+  var hu = Math.floor(n / 100); n %= 100;
+  if (cr) out.push(bnWords(cr) + ' কোটি');
+  if (lk) out.push(BN_NUM[lk] + ' লক্ষ');
+  if (th) out.push(BN_NUM[th] + ' হাজার');
+  if (hu) out.push(BN_NUM[hu] + 'শো');
+  if (n) out.push(BN_NUM[n]);
+  return out.join(' ');
+}
+var PRINT_CSS = '*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Hind Siliguri","Nirmala UI",sans-serif;color:#111;font-size:11.5px}' +
+  '.num{font-family:"Inter",sans-serif;font-variant-numeric:tabular-nums}' +
+  '.slip{height:136mm;padding:5mm 6mm;border-bottom:1px dashed #999;page-break-inside:avoid;display:flex;flex-direction:column;position:relative}' +
+  '.slip:nth-child(2n){border-bottom:0;page-break-after:always}' +
+  '.sh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0e7490;padding-bottom:4px;margin-bottom:6px}' +
+  '.sh .org{display:block;font-size:17px;font-weight:700;color:#0e7490;line-height:1.2}.sh span{font-size:12px;font-weight:600}' +
+  '.stamp{font-weight:700;font-size:12px;padding:3px 10px;border-radius:6px;border:2px solid}' +
+  '.stamp.ok{color:#15803d;border-color:#15803d}.stamp.dr{color:#b45309;border-color:#b45309}' +
+  'table{width:100%;border-collapse:collapse}.info td{padding:2px 4px;font-size:11.5px}.info td:nth-child(odd){color:#555;width:16%}' +
+  '.att{margin:5px 0;padding:4px 6px;background:#f1f5f9;border-radius:4px;font-size:11px}' +
+  '.ln th,.ln td{border:1px solid #ccc;padding:3px 6px;text-align:left}.ln th{background:#e0f2fe;font-size:11px}.ln td.a{text-align:right;white-space:nowrap;width:90px}' +
+  '.ln tr.neg td.a{color:#b91c1c}.ln tr.tot td{font-weight:700;font-size:13px;background:#ecfeff}' +
+  '.words{margin-top:4px;font-size:11.5px}.sig{margin-top:auto;display:flex;justify-content:space-between;padding-top:18px}' +
+  '.sig span{border-top:1px solid #333;padding-top:2px;width:30%;text-align:center;font-size:11px}' +
+  '.sheet h1{font-size:18px;color:#0e7490}.sheet .sub{font-size:12px;margin:2px 0 8px}' +
+  '.sheet table th,.sheet table td{border:1px solid #bbb;padding:3px 5px;font-size:10.5px;text-align:left;vertical-align:top}.sheet th{background:#e0f2fe}' +
+  '.sheet td.a{text-align:right;white-space:nowrap}.sheet tr.sub td{background:#f1f5f9;font-weight:700}.sheet tr.grand td{background:#cffafe;font-weight:700;font-size:12px}' +
+  '.sheet .sig{padding-top:40px}';
+function printDoc(title, body, land) {
+  var html = '<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@500;700&display=swap" rel="stylesheet">' +
+    '<style>' + PRINT_CSS + (land ? '@page{size:A4 landscape;margin:9mm}' : '@page{size:A4;margin:6mm}') + '</style></head><body>' + body + '</body></html>';
+  window.__lastPrint = html;
+  if (window.__noPrint) return;
+  var f = document.createElement('iframe');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  var d = f.contentDocument; d.open(); d.write(html); d.close();
+  var go = function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(function () { f.remove(); }, 60000); };
+  setTimeout(function () { (d.fonts && d.fonts.ready ? d.fonts.ready : Promise.resolve()).then(function () { setTimeout(go, 200); }); }, 300);
+}
+function attLine(r) {
+  var a = r.att || {}, e = empById(r.emp) || {};
+  var p = ['কর্মদিবস ' + (a.w || 0), 'উপস্থিত ' + (a.P || 0)];
+  if (a.A) p.push('অনুপস্থিত ' + a.A); if (a.L) p.push('মঞ্জুর ছুটি ' + a.L); if (a.U) p.push('বিনা বেতনে ' + a.U); if (a.H) p.push('অর্ধদিবস ' + a.H);
+  if (a.OW) p.push('ছুটির দিনে কাজ ' + a.OW); if (a.late) p.push('দেরি ' + a.late);
+  if (e.basis === 'hour') p.push('মোট ঘণ্টা ' + (a.h || 0));
+  if (e.basis === 'class' || e.basis === 'piece') p.push('মোট ' + (e.basis === 'class' ? 'ক্লাস ' : 'কাজ ') + (a.q || 0));
+  return p.join(' · ');
+}
+function slipHtml(r) {
+  var e = empById(r.emp) || {}, st = S.pay.st || {}, approved = st.st === 'approved';
+  return '<div class="slip"><div class="sh"><div><b class="org">' + esc(r.org || S.set.org) + '</b><span>বেতন-রসিদ · ' + monthLabel(S.pay.month) + '</span></div>' +
+    '<div class="stamp ' + (approved ? 'ok' : 'dr') + '">' + (r.paid ? '✓ পরিশোধিত' : approved ? 'অনুমোদিত' : 'খসড়া') + '</div></div>' +
+    '<table class="info"><tr><td>নাম</td><td><b>' + esc(r.name) + '</b></td><td>আইডি</td><td class="num">' + esc(r.emp) + (e.sheet ? ' · খাতার পাতা ' + esc(e.sheet) : '') + '</td></tr>' +
+    '<tr><td>পদ</td><td>' + esc(e.desig || '—') + '</td><td>বিভাগ</td><td>' + esc(r.dept || '—') + '</td></tr>' +
+    '<tr><td>ভিত্তি</td><td>' + (BASES[r.basis] || '') + '</td><td>পরিশোধ</td><td>' + (PAYS[r.pay] || '—') + (r.acct ? ' · ' + esc(r.acct) : '') + (r.paidRef ? ' · ' + esc(r.paidRef) : '') + '</td></tr></table>' +
+    '<div class="att">' + attLine(r) + '</div>' +
+    '<table class="ln"><tr><th>বিবরণ</th><th style="text-align:right">টাকা</th></tr>' + r.lines.map(function (l) {
+      return '<tr class="' + (l.a < 0 ? 'neg' : '') + '"><td>' + esc(l.t) + '</td><td class="a num">' + (l.k === 'info' ? '—' : (l.a < 0 ? '−' : '') + tk(Math.abs(l.a))) + '</td></tr>';
+    }).join('') + '<tr class="tot"><td>মোট পাওনা</td><td class="a num">' + tk(r.net) + '</td></tr></table>' +
+    '<div class="words">কথায়: <b>' + bnWords(r.net) + ' টাকা মাত্র</b></div>' +
+    '<div class="sig"><span>গ্রহীতার স্বাক্ষর</span><span>হিসাবরক্ষক</span><span>অনুমোদনকারী</span></div></div>';
+}
+function printSlips(rows) {
+  printDoc('বেতন-রসিদ ' + S.pay.month, rows.map(slipHtml).join(''), false);
+}
+function printSheet(rows) {
+  var z = function (v) { return v ? (v < 0 ? '−' : '') + tk(Math.abs(v)) : '—'; };
+  var st = S.pay.st || {}, groups = {}, order = [];
+  rows.forEach(function (r) { var o = r.org || S.set.org; if (!groups[o]) { groups[o] = []; order.push(o); } groups[o].push(r); });
+  var n = 0, G = { earn: 0, ded: 0, adj: 0, adv: 0, net: 0 };
+  var body = order.map(function (o) {
+    var T = { earn: 0, ded: 0, adj: 0, adv: 0, net: 0 };
+    return groups[o].map(function (r) {
+      ['earn', 'ded', 'adj', 'adv', 'net'].forEach(function (k) { T[k] += r[k]; G[k] += r[k]; });
+      var e = empById(r.emp) || {}, a = r.att || {};
+      return '<tr><td class="num">' + (++n) + '</td><td class="num">' + esc(r.emp) + '</td><td><b>' + esc(r.name) + '</b><br>' + esc(e.desig || '') + '</td><td>' + esc(r.dept || '') + '</td>' +
+        '<td class="num">' + (a.w || 0) + ' / ' + (a.P || 0) + (a.A ? ' / অ' + a.A : '') + '</td><td class="a num">' + tk(r.earn) + '</td><td class="a num">' + (r.ded ? tk(r.ded) : '—') + '</td>' +
+        '<td class="a num">' + (r.adj ? (r.adj < 0 ? '−' : '') + tk(Math.abs(r.adj)) : '—') + '</td><td class="a num">' + (r.adv ? tk(r.adv) : '—') + '</td><td class="a num"><b>' + tk(r.net) + '</b></td>' +
+        '<td>' + (PAYS[r.pay] || '') + (r.acct ? '<br><span class="num">' + esc(r.acct) + '</span>' : '') + '</td><td style="width:70px">' + (r.paid ? '✓' : '') + '</td></tr>';
+    }).join('') + '<tr class="sub"><td colspan="5">' + esc(o) + ' — মোট ' + groups[o].length + ' জন</td><td class="a num">' + z(T.earn) + '</td><td class="a num">' + z(T.ded) + '</td><td class="a num">' + z(T.adj) + '</td><td class="a num">' + z(T.adv) + '</td><td class="a num">' + z(T.net) + '</td><td colspan="2"></td></tr>';
+  }).join('');
+  printDoc('বেতন শিট ' + S.pay.month, '<div class="sheet"><h1>' + esc(S.set.org) + ' — বেতন শিট</h1><div class="sub">' + monthLabel(S.pay.month) + ' · ' + rows.length + ' জন · ' +
+    (st.st === 'approved' ? 'অনুমোদিত: ' + esc(st.ok.by) : 'খসড়া — এখনো অনুমোদিত নয়') + '</div>' +
+    '<table><tr><th>ক্রম</th><th>আইডি</th><th>নাম ও পদ</th><th>বিভাগ</th><th>কর্মদিবস / উপস্থিত</th><th>আয়</th><th>কাটা</th><th>সমন্বয়</th><th>অগ্রিম</th><th>মোট পাওনা</th><th>পরিশোধ</th><th>স্বাক্ষর</th></tr>' + body +
+    '<tr class="grand"><td colspan="5">সর্বমোট — ' + rows.length + ' জন</td><td class="a num">' + z(G.earn) + '</td><td class="a num">' + z(G.ded) + '</td><td class="a num">' + z(G.adj) + '</td><td class="a num">' + z(G.adv) + '</td><td class="a num">' + z(G.net) + '</td><td colspan="2"></td></tr></table>' +
+    '<p style="margin-top:6px">কথায়: <b>' + bnWords(G.net) + ' টাকা মাত্র</b></p>' +
+    '<div class="sig"><span>প্রস্তুতকারী</span><span>হিসাবরক্ষক</span><span>অনুমোদনকারী</span></div></div>', true);
+}
+// এক্সেলে খোলা যায় এমন CSV — বাংলা ঠিক রাখতে শুরুতে BOM
+function downloadCsv(rows, method) {
+  var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var lines = [['ক্রম', 'আইডি', 'নাম', 'প্রতিষ্ঠান', 'পরিশোধের পদ্ধতি', 'হিসাব নম্বর', 'মোট পাওনা', 'পরিশোধ হয়েছে', 'লেনদেন নম্বর'].join(',')];
+  rows.forEach(function (r, i) { lines.push([i + 1, r.emp, r.name, r.org, PAYS[r.pay] || '', r.acct, r.net, r.paid ? 'হ্যাঁ' : 'না', r.paidRef].map(q).join(',')); });
+  var total = rows.reduce(function (a, r) { return a + r.net; }, 0);
+  lines.push(['', '', 'মোট ' + rows.length + ' জন', '', '', '', total, '', ''].map(q).join(','));
+  var csv = '\ufeff' + lines.join('\r\n');
+  window.__lastCsv = csv;
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'salary-' + S.pay.month + (method ? '-' + method : '') + '.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function outRows(method) { return payRowsF().filter(function (r) { return !method || (r.pay || 'cash') === method; }); }
+function openOut() {
+  var rows = payRowsF(), by = {};
+  rows.forEach(function (r) { var k = r.pay || 'cash'; (by[k] = by[k] || { n: 0, s: 0 }); by[k].n++; by[k].s += r.net; });
+  openSheet('📤 প্রিন্ট ও তালিকা — ' + monthLabel(S.month),
+    '<p class="hint">' + (S.pf.org ? 'শুধু ' + esc(S.pf.org) + ' — ' : '') + rows.length + ' জন। ' + (S.pay.st.st === 'approved' ? '' : '⚠️ এখনো খসড়া — রসিদে "খসড়া" লেখা থাকবে।') + '</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn pri" data-a="out-slips">🧾 সব বেতন-রসিদ (A4-এ দুটো করে)</button><button class="btn" data-a="out-sheet">📄 বেতন শিট</button><button class="btn" data-a="out-csv">⬇ সবার তালিকা (এক্সেল)</button></div>' +
+    '<div class="sh-sec">পরিশোধের পদ্ধতি অনুযায়ী তালিকা</div>' +
+    Object.keys(PAYS).filter(function (k) { return by[k]; }).map(function (k) {
+      return '<div class="row"><span><b>' + PAYS[k] + '</b><small>' + by[k].n + ' জন · ' + tk(by[k].s) + '</small></span>' +
+        '<button class="btn sm" data-a="out-mcsv" data-v="' + k + '">⬇ এক্সেল</button><button class="btn sm" data-a="out-msheet" data-v="' + k + '">🖨 প্রিন্ট</button></div>';
+    }).join(''));
+}
+function openMark() {
+  var rows = payRowsF().filter(function (r) { return !r.paid; }), by = {};
+  rows.forEach(function (r) { var k = r.pay || 'cash'; (by[k] = by[k] || { n: 0, s: 0 }); by[k].n++; by[k].s += r.net; });
+  openSheet('✓ পরিশোধ চিহ্ন — ' + monthLabel(S.month),
+    (rows.length ? '<p class="hint">যে পদ্ধতিতে সবাইকে টাকা দেওয়া হয়ে গেছে, সেটার পাশে চাপুন। একজন একজন করে দিতে চাইলে তালিকা থেকে নাম চেপে বিবরণে "পরিশোধ হয়েছে" দিন।</p>' +
+      '<label class="fl">লেনদেন / ব্যাংক রেফারেন্স <em>(ঐচ্ছিক — সবার সাথে লেখা থাকবে)</em></label><input class="in" id="markRef" maxlength="60">' +
+      '<div style="margin-top:12px">' + Object.keys(PAYS).filter(function (k) { return by[k]; }).map(function (k) {
+        return '<div class="row"><span><b>' + PAYS[k] + '</b><small>বাকি ' + by[k].n + ' জন · ' + tk(by[k].s) + '</small></span><button class="btn sm pri" data-a="mark-method" data-v="' + k + '">✓ সবাই পেয়েছেন</button></div>';
+      }).join('') + '</div>'
+      : '<p class="hint">✅ এই তালিকার সবার পরিশোধ হয়ে গেছে।</p>'));
+}
+
+
 
 /* ═════════ সেটিংস ═════════ */
 function setPage() {
@@ -1989,6 +2203,11 @@ document.addEventListener('click', function (ev) {
   if (sg && sg.parentNode.id === 'efSt') { S.ef.st = sg.getAttribute('data-v'); render(); return; }
   if (sg && sg.parentNode.id === 'afSt') { S.af.st = sg.getAttribute('data-v'); refreshAttList(); return; }
   if (sg && sg.parentNode.id === 'pfFlag') { S.pf.flag = sg.getAttribute('data-v') === '1'; render(); return; }
+  if (sg && sg.parentNode.id === 'payTab') {
+    S.payTab = sg.getAttribute('data-v');
+    if (S.payTab === 'pay' && (!S.pay || S.payFor !== S.month)) route(); else render();
+    return;
+  }
   if (sg && sg.parentNode.getAttribute('data-fseg') === 'theme') { THEME = sg.getAttribute('data-v'); try { localStorage.setItem('sal_theme', THEME); } catch (e) {} applyTheme(); render(); return; }
   if (sg && sg.parentNode.getAttribute('data-fseg') === 'lateRule') { sg.parentNode.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === sg); }); return; }
 
@@ -2077,6 +2296,43 @@ document.addEventListener('click', function (ev) {
       if (!why || !why.trim()) return;
       callServer('apiPayUnlock', [S.month, why.trim()]).then(function (d) { setPay(d); toast('🔓 তালা খোলা হয়েছে'); }, function (err) { toast(err.message, 5000); }); break;
     case 'pay-open': openPayDetail(id); break;
+    case 'advrec':
+      var mode = a.getAttribute('data-v'), o = (S.pay.advs || {})[PF.id];
+      if (mode === 'part') { PF.part = true; drawPayDetail(); if ($('advPart')) $('advPart').focus(); return; }
+      PF.part = false;
+      callServer('apiAdvSetRec', [S.month, PF.id, mode === 'auto' ? null : mode === 'none' ? 0 : o.bal]).then(function (d) { setPay(d); toast('✓ অগ্রিমের কাটা ঠিক হলো'); }, function (err) { toast(err.message, 4500); }); break;
+    case 'advrec-part':
+      var pv = Number(bnDigits($('advPart').value).replace(/[,৳\s]/g, ''));
+      if (!(pv >= 0)) { toast('টাকার অঙ্ক দিন।'); return; }
+      PF.part = false;
+      callServer('apiAdvSetRec', [S.month, PF.id, pv]).then(function (d) { setPay(d); toast('✓ অগ্রিমের কাটা ঠিক হলো'); }, function (err) { toast(err.message, 4500); }); break;
+    case 'paid-one': case 'paid-undo':
+      var on = act === 'paid-one';
+      callServer('apiPayMark', [S.month, [PF.id], on, on && $('paidRef') ? $('paidRef').value : '']).then(function (d) { setPay(d); toast(on ? '✅ পরিশোধ চিহ্ন দেওয়া হলো' : 'পরিশোধ চিহ্ন তোলা হলো'); }, function (err) { toast(err.message, 4500); }); break;
+    case 'pay-markopen': openMark(); break;
+    case 'mark-method':
+      var mm = a.getAttribute('data-v'), ids2 = payRowsF().filter(function (r) { return !r.paid && (r.pay || 'cash') === mm; }).map(function (r) { return r.emp; });
+      if (!confirm(PAYS[mm] + ' — ' + ids2.length + ' জনকে "পরিশোধ হয়েছে" চিহ্ন দেবেন?')) return;
+      a.disabled = true;
+      callServer('apiPayMark', [S.month, ids2, true, $('markRef').value]).then(function (d) { setPay(d); openMark(); toast('✅ ' + ids2.length + ' জন — পরিশোধ হয়েছে'); }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'pay-out': openOut(); break;
+    case 'out-slips': printSlips(outRows()); break;
+    case 'out-sheet': printSheet(outRows()); break;
+    case 'out-csv': downloadCsv(outRows(), ''); break;
+    case 'out-mcsv': downloadCsv(outRows(a.getAttribute('data-v')), a.getAttribute('data-v')); break;
+    case 'out-msheet': printSheet(outRows(a.getAttribute('data-v'))); break;
+    case 'slip-one': printSlips(S.pay.rows.filter(function (r) { return r.emp === PF.id; })); break;
+    case 'adv-new': openAdvForm(); break;
+    case 'adv-save':
+      var ev = $('av_emp').value.trim(), eid = ev.split(' · ')[0].trim().toUpperCase();
+      if (!empById(eid)) { toast('তালিকা থেকে কর্মচারী বাছুন।'); $('av_emp').focus(); return; }
+      a.disabled = true;
+      callServer('apiAdvGive', [{ emp: eid, date: $('av_date').value, amount: bnDigits($('av_amt').value).replace(/[,৳\s]/g, ''), inst: bnDigits($('av_inst').value).replace(/[,৳\s]/g, ''), reason: $('av_rs').value }]).then(function (d) {
+        S.adv = d; S.pay = null; S.payFor = ''; closeOv(); toast('✓ অগ্রিম সেভ হয়েছে'); render();
+      }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'adv-del':
+      if (!confirm('এই অগ্রিমটা মুছবেন?')) return;
+      callServer('apiAdvDelete', [a.getAttribute('data-v')]).then(function (d) { S.adv = d; S.pay = null; S.payFor = ''; render(); }, function (err) { toast(err.message, 4500); }); break;
     case 'adj-sign': PF.sign = +a.getAttribute('data-v'); drawPayDetail(); break;
     case 'adj-add':
       var amt = Number(bnDigits($('adj_amt').value).replace(/[,৳\s]/g, '')), rs = $('adj_rs').value.trim();
