@@ -129,7 +129,7 @@ a{color:var(--acc)}
 .menu button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;color:var(--ink);padding:11px 12px;border-radius:9px;font-size:14.5px;text-align:left}
 .menu button:hover{background:var(--soft)}
 main{padding:16px 16px 96px;max-width:1280px;margin:0 auto}
-.bnav{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(4,1fr);background:var(--top);
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--top);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
 .bnav button{border:0;background:none;color:var(--ink3);display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border-radius:12px;font-size:12px;font-weight:600}
 .bnav button i{font-style:normal;font-size:19px;line-height:1.2}
@@ -267,6 +267,9 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .rate span{flex:1;min-width:0}
 .rate small{display:block;font-size:12px;color:var(--ink3)}
 .rate.cur{background:var(--acc-s)}
+.rate.pend{background:color-mix(in srgb,var(--warn) 10%,transparent);flex-wrap:wrap}
+.ro .seg button,.ro .sw,.ro .days7 button{pointer-events:none}
+.ro .in:disabled,.ro .sel:disabled{opacity:.8}
 .rate .x{border:0;background:none;color:var(--ink3);font-size:15px;padding:4px 6px;border-radius:8px}
 .rate .x:hover{color:var(--neg)}
 .addr{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:8px;align-items:end}
@@ -580,7 +583,8 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
   }
   function waitForLogin() { locked = false; loginWait = true; root.setAttribute('data-al-open', ''); }
   window.appLockWaitLogin = waitForLogin;
-  window.appLockAfterLogin = function () { if (stale()) lock(); else unlock(); };
+  // লগইনের পর সবসময় নিজের PIN (একই ডিভাইসে আরেকজন ঢুকলে আগের জনের খোলা অবস্থা চলবে না)
+  window.appLockAfterLogin = function () { MODE = ''; writeLast(0); mem = 0; lock(); };
   window.appLockNow = function () { writeLast(0); mem = 0; lock(); };
 
   function check() { if (!locked && !loginWait && stale()) lock(); }
@@ -735,8 +739,19 @@ function parseTime(v, ref, after) {
 }
 
 function empById(id) { for (var i = 0; i < S.emps.length; i++) if (S.emps[i].id === id) return S.emps[i]; return null; }
+// ভূমিকার অনুমতি — সার্ভার boot-এ পাঠায় (money, emp, del, rate, att, hol, settings, users, log)
+function can(k) { return S.me && S.me.caps ? S.me.caps[k] : false; }
+function pageOk(p) { return p !== 'emp' || can('money') || can('emp'); }
+var ROLE_INFO = {
+  owner: 'সব প্রতিষ্ঠানের সবার বেতন দেখেন; বেতন ও প্রস্তাবিত হার অনুমোদন; ব্যবহারকারী ঠিক করা।',
+  manager: 'সবার কর্মচারী, হাজিরা ও বেতন দেখেন; হাজিরা যাচাই ও ছুটি মঞ্জুর; কর্মচারীর তথ্য বা হার বদলান না।',
+  accountant: 'হাজিরা তোলা, কর্মচারী যোগ/বদল, বেতন তৈরি; নতুন হার প্রস্তাব — মালিক অনুমোদন করলে চালু।',
+  clerk: 'শুধু নাম আর হাজিরা — টাকার অঙ্ক কোথাও দেখেন না; শুধু খাতা থেকে হাজিরা তোলেন।',
+  admin: 'সব — অ্যাপ চালনা, ব্যবহারকারী ঠিক করা।'
+};
+// অপেক্ষমাণ (অনুমোদন হয়নি) হার বেতনে ধরা হয় না
 function curRate(id, on) {
-  var list = S.rates[id] || [], d = on || todayStr(), r = null;
+  var list = (S.rates[id] || []).filter(function (x) { return !x.pending; }), d = on || todayStr(), r = null;
   list.forEach(function (x) { if (x.from <= d) r = x; });
   return r || list[0] || null;
 }
@@ -867,7 +882,7 @@ function go(hash) { if (location.hash === hash) route(); else location.hash = ha
 window.addEventListener('hashchange', route);
 function route() {
   var h = location.hash.replace(/^#/, '').split('/');
-  var page = PAGES.some(function (p) { return p[0] === h[0]; }) ? h[0] : 'dash';
+  var page = PAGES.some(function (p) { return p[0] === h[0]; }) && (!S.booted || pageOk(h[0])) ? h[0] : 'dash';
   var id = page === 'att' && h[1] ? decodeURIComponent(h[1]) : '';
   if (S.cur && (S.cur.id !== id || page !== 'att')) {
     var c = S.cur;
@@ -894,8 +909,8 @@ function route() {
 
 function renderShell() {
   document.querySelectorAll('.orgTxt').forEach(function (x) { x.textContent = S.set.org || ORG; });
-  $('sideMe').textContent = S.me ? S.me.email : '';
-  var nav = PAGES.map(function (p) {
+  $('sideMe').textContent = S.me ? S.me.email + (S.me.roleName ? ' · ' + S.me.roleName : '') : '';
+  var nav = PAGES.filter(function (p) { return pageOk(p[0]); }).map(function (p) {
     return '<button data-go="#' + p[0] + '" class="' + (S.page === p[0] ? 'on' : '') + '"><i>' + p[1] + '</i>' + p[2] + '</button>';
   }).join('');
   $('sideNav').innerHTML = nav;
@@ -911,11 +926,34 @@ function render() {
   }
   if (S.page === 'emp') v.innerHTML = empPage();
   else if (S.page === 'att') { v.innerHTML = attPage(); afterAtt(); }
-  else if (S.page === 'set') { v.innerHTML = setPage(); }
+  else if (S.page === 'set') { v.innerHTML = setPage(); if (can('users')) loadUsers(); }
   else v.innerHTML = dashPage();
 }
 
 /* ═════════ সারাংশ ═════════ */
+// অনুমোদনের অপেক্ষায় থাকা হার — মালিক/চালনাকারী অনুমোদন বা বাতিল করেন, হিসাবরক্ষক নিজের প্রস্তাব দেখেন
+function pendingList() {
+  var out = [];
+  Object.keys(S.rates).forEach(function (id) {
+    (S.rates[id] || []).forEach(function (r) { if (r.pending) { var e = empById(id); if (e) out.push({ e: e, r: r }); } });
+  });
+  return out;
+}
+function pendingRow(e, r, direct) {
+  var cr = curRate(e.id, r.from);
+  return '<div class="rate pend"><span><b>' + esc(e.name) + '</b> <span class="num">(' + esc(e.id) + ')</span> — <b class="num">' + tk(r.amount) + '</b>' + (r.allow ? ' + ভাতা ' + tk(r.allow) : '') +
+    '<small>' + RATE_LBL[e.basis] + ' · ' + (r.from <= '2000-01-01' ? 'শুরু থেকে' : dateLabel(r.from) + ' থেকে') + (cr ? ' · এখন ' + tk(cr.amount) : ' · প্রথম হার') +
+    ' · প্রস্তাব: ' + esc(r.by) + (r.note ? ' · ' + esc(r.note) : '') + '</small></span>' +
+    (direct ? '<button class="btn sm pri" type="button" data-a="rate-ok" data-rid="' + esc(r.rid) + '" data-id="' + esc(e.id) + '">✓ অনুমোদন</button>' +
+      '<button class="btn sm red" type="button" data-a="rate-no" data-rid="' + esc(r.rid) + '" data-id="' + esc(e.id) + '">✕ বাতিল</button>' : '') + '</div>';
+}
+function pendingCard() {
+  var L = pendingList(); if (!L.length) return '';
+  var direct = can('rate') === 'direct';
+  return '<div class="card" style="border-color:color-mix(in srgb,var(--warn) 45%,var(--line))"><h3>⏳ অনুমোদনের অপেক্ষায় বেতনের হার <span class="chip warn">' + L.length + '</span></h3>' +
+    '<p class="hint">' + (direct ? 'হিসাবরক্ষকের প্রস্তাব — অনুমোদন করলে চালু হবে, বাতিল করলে মুছে যাবে (কার্যতালিকায় থাকবে)।' : 'এই প্রস্তাবগুলো মালিকের অনুমোদনের অপেক্ষায় — তার আগে বেতনে ধরা হবে না।') + '</p>' +
+    '<div class="rates">' + L.map(function (x) { return pendingRow(x.e, x.r, direct); }).join('') + '</div></div>';
+}
 function dashPage() {
   var act = S.emps.filter(function (e) { return e.active; });
   var inM = S.emps.filter(function (e) { return inMonth(e, S.month); });
@@ -933,8 +971,9 @@ function dashPage() {
   var p = inM.length ? Math.round(done / inM.length * 100) : 0;
   var hi = new Date().getHours();
   var greet = hi < 12 ? 'শুভ সকাল' : hi < 17 ? 'শুভ দুপুর' : 'শুভ সন্ধ্যা';
-  return '<div class="ph"><div><h2>' + greet + ' 👋</h2><p>' + esc(S.set.org) + ' · আজ ' + dateLabel(todayStr()) + '</p></div>' +
-    '<div class="acts"><button class="btn" data-a="emp-new">＋ নতুন কর্মচারী</button><button class="btn pri" data-go="#att">🗓️ হাজিরা তুলুন</button></div></div>' +
+  return '<div class="ph"><div><h2>' + greet + ' 👋</h2><p>' + esc(S.set.org) + ' · আজ ' + dateLabel(todayStr()) + (S.me && S.me.roleName ? ' · আপনি: <b>' + esc(S.me.roleName) + '</b>' : '') + '</p></div>' +
+    '<div class="acts">' + (can('emp') ? '<button class="btn" data-a="emp-new">＋ নতুন কর্মচারী</button>' : '') + '<button class="btn pri" data-go="#att">🗓️ হাজিরা তুলুন</button></div></div>' +
+    pendingCard() +
     '<div class="stats">' +
       '<div class="stat"><i>👥</i><div><small>সক্রিয় কর্মচারী</small><b class="num">' + act.length + '</b></div></div>' +
       '<div class="stat"><i>🗓️</i><div><small>' + monthLabel(S.month) + '-এর হাজিরা শেষ</small><b class="num">' + (rows ? done : '…') + ' <em>/ ' + inM.length + '</em></b></div></div>' +
@@ -984,7 +1023,7 @@ function empPage() {
   var list = empFiltered();
   var nAct = S.emps.filter(function (e) { return e.active; }).length;
   return '<div class="ph"><div><h2>কর্মচারী</h2><p>মোট ' + S.emps.length + ' জন · সক্রিয় ' + nAct + ' জন</p></div>' +
-    '<div class="acts"><button class="btn" data-a="import">⬆ এক্সেল থেকে যোগ</button><button class="btn pri" data-a="emp-new">＋ নতুন কর্মচারী</button></div></div>' +
+    '<div class="acts">' + (can('emp') ? '<button class="btn" data-a="import">⬆ এক্সেল থেকে যোগ</button><button class="btn pri" data-a="emp-new">＋ নতুন কর্মচারী</button>' : '<span class="chip">শুধু দেখা</span>') + '</div></div>' +
     '<div class="tools">' +
       '<input class="in" id="efQ" placeholder="🔍 নাম, আইডি বা ফোন" value="' + esc(S.ef.q) + '">' +
       '<select class="sel" id="efDept"><option value="">সব বিভাগ</option>' + depts().map(function (d) { return '<option' + (S.ef.dept === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
@@ -1005,7 +1044,8 @@ function empRows(list) {
         '<span class="eid">' + esc(e.id) + '</span>' +
         '<span><b>' + esc(e.name) + '</b><small>' + esc([e.desig, e.dept, e.org].filter(Boolean).join(' · ') || '—') + (e.sheet ? ' · পাতা ' + esc(e.sheet) : '') + '<span class="mob"> · ' + esc(e.id) + '</span>' + (e.active ? '' : ' · বাদ ' + dateLabel(e.leave)) + '</small></span>' +
         '<span class="tp ' + e.type + '">' + TYPES[e.type] + '</span>' +
-        '<span class="erate"><b class="num">' + (r ? tk(r.amount) : '—') + '</b><small>' + RATE_LBL[e.basis] + (r && r.allow ? ' + ভাতা ' + tk(r.allow) : '') + '</small></span>' +
+        '<span class="erate"><b class="num">' + (r ? tk(r.amount) : '—') + '</b><small>' + RATE_LBL[e.basis] + (r && r.allow ? ' + ভাতা ' + tk(r.allow) : '') +
+          ((S.rates[e.id] || []).some(function (x) { return x.pending; }) ? ' · <span style="color:var(--warn);font-weight:700">অনুমোদন বাকি</span>' : '') + '</small></span>' +
         '<span class="esch num">' + (e.basis === 'flat' ? '—' : esc(schedTxt(e))) + '<small>ছুটি: ' + offTxt(e.off) + '</small></span>' +
       '</div>';
     }).join('') + '<div class="lfoot">' + list.length + ' জন দেখানো হচ্ছে</div>';
@@ -1023,7 +1063,7 @@ function blankEmp() {
 function openEmp(id) {
   var e = id ? empById(id) : null;
   F = { isNew: !e, e: e ? clone(e) : blankEmp(), rate: { amount: '', allow: '' }, nr: null };
-  openSheet(e ? esc(e.name) : 'নতুন কর্মচারী', '<div id="empForm"></div>', { drawer: true });
+  openSheet(e ? esc(e.name) + (can('emp') ? '' : ' <span class="chip">শুধু দেখা</span>') : 'নতুন কর্মচারী', '<div id="empForm"></div>', { drawer: true });
   drawEmpForm();
 }
 function segH(name, opts, val) {
@@ -1054,19 +1094,24 @@ function drawEmpForm() {
     '<p class="hint" style="margin-top:6px">' + BASIS_HELP[e.basis] + '</p>' +
     (F.isNew
       ? '<div class="g2"><div><label class="fl">' + RATE_LBL[e.basis] + ' (৳) *</label><input class="in num" id="f_amount" inputmode="decimal" value="' + esc(F.rate.amount) + '"></div>' +
-        '<div><label class="fl">ভাতা (৳) <em>মাসিক, ঐচ্ছিক</em></label><input class="in num" id="f_allow" inputmode="decimal" value="' + esc(F.rate.allow) + '"></div></div>'
+        '<div><label class="fl">ভাতা (৳) <em>মাসিক, ঐচ্ছিক</em></label><input class="in num" id="f_allow" inputmode="decimal" value="' + esc(F.rate.allow) + '"></div></div>' +
+        (can('rate') !== 'direct' ? '<p class="hint" style="margin-top:6px">⏳ এই হার মালিকের অনুমোদনের পর চালু হবে।</p>' : '')
       : '<label class="fl">বেতন / রেটের ইতিহাস <em>— নতুন হার কোন তারিখ থেকে কার্যকর তা দিন; মাসের মাঝে বদলালে দুই ভাগে হিসাব হবে</em></label>' +
         '<div class="rates">' + rates.slice().reverse().map(function (r) {
+          if (r.pending) return pendingRow(e, r, can('rate') === 'direct').replace('</small></span>', '</small></span>' +
+            (can('rate') !== 'direct' && S.me && r.by === S.me.email ? '<button class="x" type="button" data-a="rate-del" data-rid="' + esc(r.rid) + '" title="প্রস্তাব তুলে নিন">✕</button>' : ''));
           return '<div class="rate' + (cr && r.rid === cr.rid ? ' cur' : '') + '"><span><b class="num">' + tk(r.amount) + '</b>' + (r.allow ? ' <span class="chip">+ ভাতা ' + tk(r.allow) + '</span>' : '') +
             (cr && r.rid === cr.rid ? ' <span class="chip acc">এখন চালু</span>' : r.from > todayStr() ? ' <span class="chip warn">সামনে চালু হবে</span>' : '') +
             '<small>' + (r.from <= '2000-01-01' ? 'শুরু থেকে' : dateLabel(r.from) + ' থেকে') + (r.note ? ' · ' + esc(r.note) : '') + '</small></span>' +
-            (rates.length > 1 ? '<button class="x" type="button" data-a="rate-del" data-rid="' + esc(r.rid) + '" title="মুছুন">✕</button>' : '') + '</div>';
+            (rates.length > 1 && can('rate') === 'direct' ? '<button class="x" type="button" data-a="rate-del" data-rid="' + esc(r.rid) + '" title="মুছুন">✕</button>' : '') + '</div>';
         }).join('') + '</div>' +
+        (!can('rate') ? '' :
         '<div class="addr"><div><label class="fl">কার্যকর তারিখ</label><input class="in" id="nr_from" type="date" value="' + todayStr().slice(0, 8) + '01"></div>' +
           '<div><label class="fl">নতুন ' + RATE_LBL[e.basis] + '</label><input class="in num" id="nr_amount" inputmode="decimal"></div>' +
           '<div><label class="fl">ভাতা</label><input class="in num" id="nr_allow" inputmode="decimal" placeholder="০"></div>' +
-          '<button class="btn" type="button" data-a="rate-add">＋ যোগ</button></div>' +
-        '<input class="in" id="nr_note" maxlength="100" placeholder="কারণ (ঐচ্ছিক) — যেমন বার্ষিক বৃদ্ধি" style="margin-top:8px">') +
+          '<button class="btn" type="button" data-a="rate-add">' + (can('rate') === 'direct' ? '＋ যোগ' : 'প্রস্তাব পাঠান') + '</button></div>' +
+        '<input class="in" id="nr_note" maxlength="100" placeholder="কারণ (ঐচ্ছিক) — যেমন বার্ষিক বৃদ্ধি" style="margin-top:8px">' +
+        (can('rate') !== 'direct' ? '<p class="hint" style="margin-top:6px">⏳ নতুন হার প্রস্তাব হিসেবে যাবে — মালিক অনুমোদন করলে চালু হবে।</p>' : ''))) +
 
     '<div class="sh-sec">সময়সূচি' + (e.basis === 'flat' ? ' <em style="font-weight:500;color:var(--ink3)">(নির্দিষ্ট টাকায় হাজিরা লাগে না — তবু রাখা যায়)</em>' : '') + '</div>' +
     '<div class="swrow" style="margin-top:4px"><span>দুই বেলা (সকাল + বিকাল)<small>খাতায় সকাল আর বিকালের আলাদা আসা-যাওয়া — যেমন কোচিংয়ের দুই শিফট</small></span><button type="button" class="sw' + (e.split ? ' on' : '') + '" data-fsw="split"></button></div>' +
@@ -1096,9 +1141,11 @@ function drawEmpForm() {
       '<div class="sh-sec">অবস্থা</div>' + segH('active', [['1', '✅ সক্রিয়'], ['0', '⛔ বাদ দেওয়া হয়েছে']], e.active ? '1' : '0') +
       (!e.active ? '<label class="fl">বাদের তারিখ <em>(এর পরের দিনগুলোর হাজিরা লাগবে না)</em></label><input class="in" id="f_leave" type="date" value="' + esc(e.leave || todayStr()) + '">' : '')) +
 
-    '<div class="sh-f">' + (F.isNew ? '' : '<button class="btn red" type="button" data-a="emp-del">🗑 মুছুন</button>') +
-      '<span class="grow"></span><button class="btn" type="button" data-a="close">বাতিল</button>' +
-      '<button class="btn pri" type="button" data-a="emp-save" id="empSaveBtn">✓ সেভ করুন</button></div>';
+    '<div class="sh-f">' + (F.isNew || !can('del') ? '' : '<button class="btn red" type="button" data-a="emp-del">🗑 মুছুন</button>') +
+      '<span class="grow"></span><button class="btn" type="button" data-a="close">' + (can('emp') ? 'বাতিল' : 'বন্ধ করুন') + '</button>' +
+      (can('emp') ? '<button class="btn pri" type="button" data-a="emp-save" id="empSaveBtn">✓ সেভ করুন</button>' : '') + '</div>';
+  // শুধু দেখার অনুমতি — সব ঘর বন্ধ
+  if (!can('emp')) { box.classList.add('ro'); box.querySelectorAll('input,select').forEach(function (x) { if (!/^nr_/.test(x.id)) x.disabled = true; }); }
 }
 function hrsTxt(e) { return 'দৈনিক কর্মঘণ্টা: <b class="num">' + hm(dayMin({ split: e.split, brk: Number(e.brk) || 0, tin: e.tin, tout: e.tout, tin2: e.tin2, tout2: e.tout2 }, {}, 'P')) + '</b>'; }
 // ফর্মের লেখা F.e-তে তুলে রাখা (আবার আঁকার আগে)
@@ -1395,7 +1442,7 @@ function entryHtml() {
       (e.org ? '<span class="chip">' + esc(e.org) + '</span>' : '') + (e.sheet ? '<span class="chip acc">খাতার পাতা ' + esc(e.sheet) + '</span>' : '') +
       '<span class="chip num">⏰ ' + esc(schedTxt(e)) + (e.brk && !e.split ? ' · বিরতি ' + e.brk + ' মি' : '') + '</span><span class="chip">ছুটি: ' + offTxt(e.off) + '</span>' +
       (e.late ? '<span class="chip warn">দেরি-কাটা চালু</span>' : '') + (e.ot ? '<span class="chip acc">ওভারটাইম চালু</span>' : '') +
-      ' <button class="btn sm" data-a="emp-open" data-id="' + esc(e.id) + '" style="margin-left:auto">✏️ কর্মচারীর তথ্য</button></div>' +
+      (pageOk('emp') ? ' <button class="btn sm" data-a="emp-open" data-id="' + esc(e.id) + '" style="margin-left:auto">' + (can('emp') ? '✏️' : '👁') + ' কর্মচারীর তথ্য</button>' : '') + '</div>' +
     '<div class="sums" id="sums">' + sumsHtml(e) + '</div>' +
     (qtyOn(e) ? '<div id="qtyBox">' + qtyBox(e) + '</div>' : '') +
     (e.basis === 'flat' ? '<p class="hint" style="margin-top:10px">ℹ️ নির্দিষ্ট টাকার কর্মচারী — বেতনে হাজিরা লাগে না। তবু রেকর্ডের জন্য তোলা যায়, অথবা সরাসরি "শেষ" করে দিন।</p>' : '') +
@@ -1630,9 +1677,12 @@ function bulkDone(done) {
 function setPage() {
   var s = S.set, y = S.holYear || +todayStr().slice(0, 4);
   var hols = S.hol.filter(function (h) { return h.date.slice(0, 4) === String(y); });
+  var me = S.me || {}, sc = me.scope || {};
+  var mine = '<div class="card"><h3>🪪 আমার ভূমিকা <span class="chip acc">' + esc(me.roleName || '') + '</span></h3><p class="hint">' + esc(ROLE_INFO[me.role] || '') + '</p>' +
+    ((sc.orgs && sc.orgs.length) || (sc.depts && sc.depts.length) ? '<p class="hint" style="margin-top:6px">দায়িত্ব: ' + esc((sc.orgs || []).concat(sc.depts || []).join(', ')) + '</p>' : '') + '</div>';
   return '<div class="ph"><div><h2>সেটিংস</h2><p>সব নিয়ম এখান থেকে — শিট বা কোড ধরতে হবে না।</p></div></div>' +
     '<div class="cols2">' +
-    '<div>' +
+    '<div>' + mine + (!can('settings') ? '' :
       '<div class="card"><h3>🏢 প্রতিষ্ঠান</h3><p class="hint">একই মালিকের সব প্রতিষ্ঠানের বেতন একসাথে হয় — প্রত্যেক কর্মচারী কোনটার, তা কর্মচারীর তথ্যে বেছে নেওয়া যায়।</p>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + (orgs().map(function (d, i) { return '<span class="chip acc">' + esc(d) + '<button data-a="s-inst-rm" data-i="' + i + '" title="বাদ দিন">✕</button></span>'; }).join('') || '<span class="hint">কোনো প্রতিষ্ঠান নেই।</span>') + '</div>' +
         '<div style="display:flex;gap:8px"><input class="in" id="s_inst" maxlength="60" placeholder="নতুন প্রতিষ্ঠান"><button class="btn" data-a="s-inst-add">＋ যোগ</button></div>' +
@@ -1651,20 +1701,21 @@ function setPage() {
         '<div><label class="fl">কতবার দেরি = ১ দিন</label><input class="in num" id="s_lcount" inputmode="numeric" value="' + esc(s.lateCount) + '"></div>' +
         '<div><label class="fl">প্রতিবার কত টাকা</label><input class="in num" id="s_ltk" inputmode="numeric" value="' + esc(s.lateTk) + '"></div></div>' +
         '<p class="hint" style="margin-top:8px">"যত মিনিট তত টাকা" — ঘণ্টার হার ÷ ৬০ × দেরির মিনিট।</p>' +
-        '<div style="text-align:right;margin-top:10px"><button class="btn" data-a="s-late">সেভ</button></div></div>' +
+        '<div style="text-align:right;margin-top:10px"><button class="btn" data-a="s-late">সেভ</button></div></div>') +
+      (can('users') ? '<div class="card"><h3>👥 ব্যবহারকারী ও ভূমিকা <button class="btn sm pri" data-a="u-new">＋ নতুন</button></h3><p class="hint">কে অ্যাপে ঢুকবেন, কী করতে পারবেন, কোন প্রতিষ্ঠান/বিভাগের দায়িত্বে।</p><div id="usersBox"><div class="sk"></div></div></div>' : '') +
     '</div><div>' +
       '<div class="card"><h3>🎉 ছুটির দিন <span class="mnav" style="box-shadow:none"><button data-a="hy-prev">◀</button><b class="num" style="min-width:56px">' + y + '</b><button data-a="hy-next">▶</button></span></h3>' +
         '<p class="hint">সরকারি ও অফিসের ছুটি — এ দিনগুলো কারো কর্মদিবস ধরা হবে না (সাপ্তাহিক ছুটি প্রত্যেকের নিজের সেটিং থেকে)।</p>' +
-        '<div class="addh" style="margin-top:10px"><div><label class="fl">তারিখ</label><input class="in" id="h_from" type="date"></div><div><label class="fl">শেষ <em>(কয়েক দিন হলে)</em></label><input class="in" id="h_to" type="date"></div>' +
-        '<div><label class="fl">নাম</label><input class="in" id="h_name" maxlength="60" placeholder="যেমন: ঈদুল ফিতর"></div><button class="btn" data-a="h-add">＋ যোগ</button></div>' +
+        (!can('hol') ? '' : '<div class="addh" style="margin-top:10px"><div><label class="fl">তারিখ</label><input class="in" id="h_from" type="date"></div><div><label class="fl">শেষ <em>(কয়েক দিন হলে)</em></label><input class="in" id="h_to" type="date"></div>' +
+        '<div><label class="fl">নাম</label><input class="in" id="h_name" maxlength="60" placeholder="যেমন: ঈদুল ফিতর"></div><button class="btn" data-a="h-add">＋ যোগ</button></div>') +
         '<div class="hols">' + (hols.length ? hols.map(function (h) {
           var p = h.date.split('-'), w = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
-          return '<div class="hol"><b>' + +p[2] + ' ' + BN_M[+p[1] - 1].slice(0, 6) + '</b><small>' + BN_W[w] + '</small><span>' + esc(h.name) + '</span><button data-a="h-del" data-d="' + h.date + '" title="মুছুন">✕</button></div>';
+          return '<div class="hol"><b>' + +p[2] + ' ' + BN_M[+p[1] - 1].slice(0, 6) + '</b><small>' + BN_W[w] + '</small><span>' + esc(h.name) + '</span>' + (can('hol') ? '<button data-a="h-del" data-d="' + h.date + '" title="মুছুন">✕</button>' : '') + '</div>';
         }).join('') : '<p class="hint">' + y + '-এ কোনো ছুটির দিন যোগ করা নেই।</p>') + '</div></div>' +
-      '<div class="card"><h3>🛡️ নিরাপত্তা</h3><p class="hint">কারা অ্যাপ খুলতে পারবেন, কোন কোন ডিভাইসে লগইন আছে।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
-        '<button class="btn" data-a="security">🛡️ অনুমতি ও ডিভাইস</button><button class="btn" data-a="lock">🔒 এখনই লক / PIN বদল</button></div></div>' +
+      '<div class="card"><h3>🛡️ নিরাপত্তা</h3><p class="hint">' + (can('users') ? 'কোন কোন ডিভাইসে লগইন আছে — অচেনা হলে বের করে দিন।' : 'অ্যাপ লক বা PIN বদল।') + '</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+        (can('users') ? '<button class="btn" data-a="security">📱 লগইন থাকা ডিভাইস</button>' : '') + '<button class="btn" data-a="lock">🔒 এখনই লক / PIN বদল</button></div></div>' +
       '<div class="card"><h3>🎨 থিম</h3>' + segH('theme', [['light', '☀️ আলো'], ['dark', '🌙 অন্ধকার'], ['auto', '🖥️ অটো']], THEME) + '</div>' +
-      '<div class="card"><h3>📜 কার্যতালিকা <button class="btn sm" data-a="log">দেখুন</button></h3><p class="hint">কে কখন কী বদলালেন।</p><div class="logl" id="logBox"></div></div>' +
+      (can('log') ? '<div class="card"><h3>📜 কার্যতালিকা <button class="btn sm" data-a="log">দেখুন</button></h3><p class="hint">কে কখন কী বদলালেন।</p><div class="logl" id="logBox"></div></div>' : '') +
     '</div></div>';
 }
 function saveSet(part, okMsg) {
@@ -1673,6 +1724,51 @@ function saveSet(part, okMsg) {
   }, function (err) { toast(err.message, 4500); });
 }
 function days7Val(id) { return Array.prototype.slice.call(document.querySelectorAll('#' + id + ' button.on')).map(function (b) { return +b.getAttribute('data-d'); }); }
+
+/* ---------- 👥 ব্যবহারকারী ও ভূমিকা ---------- */
+var UL = null, UF = null;   // তালিকা, খোলা ফর্ম
+function loadUsers() {
+  callServer('apiUsers', []).then(function (d) { UL = d; drawUsers(); }, function (err) {
+    if ($('usersBox')) $('usersBox').innerHTML = '<div class="err">' + esc(err.message) + '</div>';
+  });
+}
+function scopeTxt(sc) {
+  var a = ((sc && sc.orgs) || []).concat((sc && sc.depts) || []);
+  return a.length ? a.join(', ') : 'সব প্রতিষ্ঠান';
+}
+function drawUsers() {
+  var b = $('usersBox'); if (!b || !UL) return;
+  b.innerHTML = UL.fixed.map(function (e) {
+    return '<div class="row"><span>' + esc(e) + '<small>চালনাকারী — সবসময় সব অনুমতি, বদলানো যায় না</small></span></div>';
+  }).join('') + (UL.users.length ? UL.users.map(function (u) {
+    return '<div class="row"><span>' + esc(u.name ? u.name + ' — ' + u.email : u.email) + '<small><b>' + esc(u.roleName) + '</b>' + (u.role === 'owner' ? '' : ' · ' + esc(scopeTxt(u.scope))) + '</small></span>' +
+      '<button class="btn sm" data-a="u-edit" data-v="' + esc(u.email) + '">✏️</button><button class="btn sm red" data-a="u-rm" data-v="' + esc(u.email) + '">বাদ দিন</button></div>';
+  }).join('') : '<p class="hint" style="margin-top:6px">এখনো আর কাউকে যোগ করা হয়নি।</p>');
+}
+function openUserForm(email) {
+  var u = email && UL ? UL.users.filter(function (x) { return x.email === email; })[0] : null;
+  UF = u ? clone(u) : { email: '', name: '', role: 'accountant', scope: { orgs: [], depts: [] }, isNew: true };
+  openSheet(u ? 'ভূমিকা বদল' : 'নতুন ব্যবহারকারী', '<div id="userForm"></div>');
+  drawUserForm();
+}
+function drawUserForm() {
+  var f = UF, b = $('userForm'); if (!b) return;
+  var noScope = f.role === 'owner';
+  var chips = function (list, key, act) {
+    return '<div class="days7">' + list.map(function (o) {
+      return '<button type="button" data-a="' + act + '" data-v="' + esc(o) + '" class="' + (f.scope[key].indexOf(o) !== -1 ? 'on' : '') + '">' + esc(o) + '</button>';
+    }).join('') + '</div>';
+  };
+  b.innerHTML = '<div class="g2"><div><label class="fl">ইমেইল *</label><input class="in" id="uf_email" type="email" value="' + esc(f.email) + '"' + (f.isNew ? '' : ' disabled') + '></div>' +
+    '<div><label class="fl">নাম <em>(ঐচ্ছিক)</em></label><input class="in" id="uf_name" maxlength="40" value="' + esc(f.name) + '"></div></div>' +
+    '<label class="fl">ভূমিকা</label><div class="seg">' + ['owner', 'manager', 'accountant', 'clerk'].map(function (r) {
+      return '<button type="button" data-a="u-role" data-v="' + r + '" class="' + (f.role === r ? 'on' : '') + '">' + ({ owner: 'মালিক', manager: 'ম্যানেজার', accountant: 'হিসাবরক্ষক', clerk: 'হাজিরা তোলার লোক' })[r] + '</button>';
+    }).join('') + '</div><p class="hint" style="margin-top:6px">' + esc(ROLE_INFO[f.role]) + '</p>' +
+    (noScope ? '' : '<label class="fl">কোন প্রতিষ্ঠানের দায়িত্বে <em>(কিছু না বাছলে = সব)</em></label>' + chips(orgs(), 'orgs', 'u-org') +
+      (depts().length ? '<label class="fl">শুধু কিছু বিভাগ <em>(কিছু না বাছলে = সব বিভাগ)</em></label>' + chips(depts(), 'depts', 'u-dept') : '')) +
+    '<div class="sh-f"><span class="grow"></span><button class="btn" data-a="close">বাতিল</button><button class="btn pri" data-a="u-save" id="ufBtn">✓ সেভ করুন</button></div>';
+}
+function readUserForm() { if ($('uf_email')) UF.email = $('uf_email').value.trim().toLowerCase(); if ($('uf_name')) UF.name = $('uf_name').value.trim(); }
 
 /* ---------- 🛡️ নিরাপত্তা ---------- */
 function openSecurity() {
@@ -1686,23 +1782,16 @@ function secCall(fn, args) {
 }
 function secRender(s) {
   var b = $('secBody'); if (!b) return;
-  if (s.notOwner) { b.innerHTML = '<p class="hint">আপনি (' + esc(s.me) + ') অ্যাপ ব্যবহার করতে পারেন। অনুমতি আর ডিভাইসের তালিকা শুধু মালিক দেখেন।</p>'; return; }
-  var users = s.users.map(function (u) {
-    return '<div class="row"><span>' + esc(u) + '</span><button class="btn sm red" data-rm="' + esc(u) + '">বাদ দিন</button></div>';
-  }).join('') || '<p class="hint">মালিক ছাড়া আর কেউ নেই।</p>';
+  if (s.notOwner) { b.innerHTML = '<p class="hint">ডিভাইসের তালিকা শুধু মালিক ও চালনাকারী দেখেন।</p>'; return; }
   var dt = function (t) { return t ? new Date(t).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'; };
   var ses = s.sessions.map(function (x) {
     return '<div class="row"><span>' + esc(x.device) + (x.current ? ' <b style="color:var(--pos)">(এই ডিভাইস)</b>' : '') +
       '<small>' + esc(x.email) + ' · শেষ দেখা ' + dt(x.last) + '</small></span>' +
       (x.current ? '' : '<button class="btn sm red" data-rv="' + esc(x.id) + '">বের করুন</button>') + '</div>';
   }).join('');
-  b.innerHTML = '<p class="hint">মালিক: <b>' + esc(s.owner) + '</b> — সবসময় ঢুকতে পারেন। দিনে একটা ইমেইলে সর্বোচ্চ ' + s.limit + 'টা কোড।</p>' +
-    '<label class="fl">যাঁরা অ্যাপ খুলতে পারবেন (যেমন হিসাবরক্ষক, মালিক)</label>' + users +
-    '<div style="display:flex;gap:8px;margin-top:8px"><input class="in" id="secEm" type="email" placeholder="নতুন ইমেইল"><button class="btn pri" id="secAdd">যোগ করুন</button></div>' +
-    '<label class="fl" style="margin-top:18px">লগইন থাকা ডিভাইস (' + s.sessions.length + ')</label>' + ses +
+  b.innerHTML = '<p class="hint">চালনাকারী: <b>' + esc(s.owner) + '</b>। কে অ্যাপে ঢুকবেন তা সেটিংস → ব্যবহারকারী ও ভূমিকা থেকে। দিনে একটা ইমেইলে সর্বোচ্চ ' + s.limit + 'টা কোড।</p>' +
+    '<label class="fl" style="margin-top:14px">লগইন থাকা ডিভাইস (' + s.sessions.length + ')</label>' + ses +
     (s.sessions.length > 1 ? '<button class="btn sm red" id="secOthers" style="margin-top:6px">অন্য সব ডিভাইস থেকে বের করে দিন</button>' : '');
-  $('secAdd').onclick = function () { var v = $('secEm').value.trim(); if (v) secCall('apiAddUser', [v]); };
-  b.querySelectorAll('[data-rm]').forEach(function (x) { x.onclick = function () { if (confirm(x.dataset.rm + ' — বাদ দেবেন? তাঁর সব লগইনও বন্ধ হবে।')) secCall('apiRemoveUser', [x.dataset.rm]); }; });
   b.querySelectorAll('[data-rv]').forEach(function (x) { x.onclick = function () { secCall('apiRevokeSession', [x.dataset.rv]); }; });
   if ($('secOthers')) $('secOthers').onclick = function () { if (confirm('এই ডিভাইস বাদে সব জায়গা থেকে লগআউট করবেন?')) secCall('apiRevokeOthers', []); };
 }
@@ -1755,6 +1844,25 @@ document.addEventListener('click', function (ev) {
       if (!confirm('এই ডিভাইস থেকে লগআউট করবেন? আবার ঢুকতে ইমেইল কোড লাগবে।')) return;
       flushSave().catch(function () {}).then(function () { return callServer('apiLogout', []); }).catch(function () {}).then(logoutLocal); break;
     case 'security': openSecurity(); break;
+    case 'u-new': openUserForm(null); break;
+    case 'u-edit': openUserForm(a.getAttribute('data-v')); break;
+    case 'u-role': readUserForm(); UF.role = a.getAttribute('data-v'); drawUserForm(); break;
+    case 'u-org': case 'u-dept':
+      readUserForm();
+      var key = act === 'u-org' ? 'orgs' : 'depts', vv = a.getAttribute('data-v'), ix = UF.scope[key].indexOf(vv);
+      if (ix === -1) UF.scope[key].push(vv); else UF.scope[key].splice(ix, 1);
+      drawUserForm(); break;
+    case 'u-save':
+      readUserForm();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(UF.email)) { toast('ঠিক ইমেইল লিখুন।'); return; }
+      a.disabled = true;
+      callServer('apiSaveUser', [{ email: UF.email, name: UF.name, role: UF.role, scope: UF.scope }]).then(function (d) {
+        UL = d; closeOv(); drawUsers(); toast('✓ সেভ হয়েছে — এখন ' + UF.email + ' ইমেইল-কোড দিয়ে ঢুকতে পারবেন');
+      }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'u-rm':
+      var em = a.getAttribute('data-v');
+      if (!confirm(em + ' — বাদ দেবেন? তাঁর সব লগইনও সাথে সাথে বন্ধ হবে।')) return;
+      callServer('apiRemoveUser', [em]).then(function (d) { UL = d; drawUsers(); toast('✓ বাদ দেওয়া হয়েছে'); }, function (err) { toast(err.message, 4500); }); break;
     case 'emp-new': openEmp(null); break;
     case 'emp-open': openEmp(id); break;
     case 'emp-save': saveEmp(); break;
@@ -1770,10 +1878,19 @@ document.addEventListener('click', function (ev) {
       if (am === '') { toast('নতুন হার লিখুন।'); $('nr_amount').focus(); return; }
       a.disabled = true;
       callServer('apiAddRate', [F.e.id, { from: $('nr_from').value, amount: am, allow: bnDigits($('nr_allow').value).replace(/[,৳\s]/g, ''), note: $('nr_note').value }]).then(function (rs) {
-        S.rates[F.e.id] = rs; saveBootCache(); drawEmpForm(); toast('✓ নতুন হার যোগ হয়েছে'); refreshEmpList();
+        S.rates[F.e.id] = rs; saveBootCache(); drawEmpForm(); toast(can('rate') === 'direct' ? '✓ নতুন হার যোগ হয়েছে' : '✓ প্রস্তাব পাঠানো হয়েছে — মালিকের অনুমোদনের অপেক্ষায়'); refreshEmpList();
+      }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'rate-ok': case 'rate-no':
+      var okR = act === 'rate-ok', rid0 = a.getAttribute('data-rid');
+      if (!okR && !confirm('প্রস্তাবটা বাতিল করবেন?')) return;
+      if (F) readEmpForm();
+      a.disabled = true;
+      callServer('apiDecideRate', [rid0, okR]).then(function (rs) {
+        S.rates[id] = rs; saveBootCache(); toast(okR ? '✓ অনুমোদন হয়েছে — হার চালু' : '✕ প্রস্তাব বাতিল হয়েছে');
+        if (F && $('empForm')) drawEmpForm(); render();
       }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
     case 'rate-del':
-      if (!confirm('এই হারটা মুছবেন?')) return;
+      if (!confirm('এই হারটা মুছবেন / প্রস্তাবটা তুলে নেবেন?')) return;
       readEmpForm();
       callServer('apiDeleteRate', [a.getAttribute('data-rid')]).then(function (rs) {
         S.rates[F.e.id] = rs; saveBootCache(); drawEmpForm(); refreshEmpList();
