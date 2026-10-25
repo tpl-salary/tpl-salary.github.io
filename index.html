@@ -220,6 +220,7 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 .brow{display:grid;grid-template-columns:130px 1fr 44px;gap:10px;align-items:center;font-size:14px;margin-top:10px}
 .brow .bar{height:10px}
 .brow b{text-align:right}
+.brow.mny{grid-template-columns:minmax(70px,1fr) minmax(30px,1fr) auto}
 .steps{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .steps div{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:9px 11px;border-radius:12px;background:var(--soft)}
 .steps div i{font-style:normal}
@@ -246,6 +247,14 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
 [data-theme=dark] .tp.fixed{background:#0c3a52;color:#7dd3fc} [data-theme=dark] .tp.hourly{background:#47330c;color:#fcd34d}
 [data-theme=dark] .tp.part{background:#33255e;color:#c4b5fd} [data-theme=dark] .tp.contract{background:#123d24;color:#86efac}
 .lfoot{padding:10px 16px;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line)}
+.prow{display:grid;grid-template-columns:minmax(0,2fr) 110px 110px 100px 100px 120px 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.prow:hover{background:var(--soft)} .prow small{display:block;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow>span{min-width:0} .prow .pf{display:flex;gap:4px;justify-content:flex-end}
+.phead{font-size:12px;font-weight:700;color:var(--ink3);background:var(--soft);cursor:default} .phead:hover{background:var(--soft)}
+.plines{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pl{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.pl b{white-space:nowrap} .pl.ded b{color:var(--neg)} .pl.adj b{color:var(--pos)} .pl.info{color:var(--ink3)}
+.pl.tot{background:var(--acc-s);border-bottom:0;font-weight:700} .pl.tot b{font-size:17px;color:var(--acc)}
 
 /* ---------- শিট / ড্রয়ার ---------- */
 .ov{position:fixed;inset:0;background:rgba(8,14,26,.55);z-index:60;display:flex;align-items:flex-end;justify-content:center}
@@ -387,6 +396,8 @@ textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-
   .erow .eid,.erow .tp,.erow .esch{display:none}
   .erow .erate{text-align:right}
   .erow .mob{display:inline}
+  .prow{grid-template-columns:minmax(0,1fr) auto auto;padding:10px 14px}
+  .prow .pm,.phead{display:none}
   .dr .tnw{display:none}
   .g3{grid-template-columns:1fr 1fr}
   .addr{grid-template-columns:1fr 1fr}
@@ -741,7 +752,7 @@ function parseTime(v, ref, after) {
 function empById(id) { for (var i = 0; i < S.emps.length; i++) if (S.emps[i].id === id) return S.emps[i]; return null; }
 // ভূমিকার অনুমতি — সার্ভার boot-এ পাঠায় (money, emp, del, rate, att, hol, settings, users, log)
 function can(k) { return S.me && S.me.caps ? S.me.caps[k] : false; }
-function pageOk(p) { return p !== 'emp' || can('money') || can('emp'); }
+function pageOk(p) { return p === 'pay' ? !!can('money') : p !== 'emp' || can('money') || can('emp'); }
 var ROLE_INFO = {
   owner: 'সব প্রতিষ্ঠানের সবার বেতন দেখেন; বেতন ও প্রস্তাবিত হার অনুমোদন; ব্যবহারকারী ঠিক করা।',
   manager: 'সবার কর্মচারী, হাজিরা ও বেতন দেখেন; হাজিরা যাচাই ও ছুটি মঞ্জুর; কর্মচারীর তথ্য বা হার বদলান না।',
@@ -877,7 +888,7 @@ function ensureAtt(month, force) {
 }
 
 /* ---------- পাতা বদল (#dash, #emp, #att, #att/1001, #set) ---------- */
-var PAGES = [['dash', '📊', 'সারাংশ'], ['emp', '👥', 'কর্মচারী'], ['att', '🗓️', 'হাজিরা'], ['set', '⚙️', 'সেটিংস']];
+var PAGES = [['dash', '📊', 'সারাংশ'], ['emp', '👥', 'কর্মচারী'], ['att', '🗓️', 'হাজিরা'], ['pay', '💰', 'বেতন'], ['set', '⚙️', 'সেটিংস']];
 function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 window.addEventListener('hashchange', route);
 function route() {
@@ -893,6 +904,13 @@ function route() {
     return;
   }
   S.page = page;
+  if (page === 'pay') {
+    if (S.payFor !== S.month || !S.pay) {
+      render();
+      if (S.booted) ensurePay(S.month).then(function () { route(); }, function () {});
+      return;
+    }
+  }
   if (page === 'att' || page === 'dash') {
     if (S.attFor !== S.month || !S.att) {
       render();
@@ -927,6 +945,7 @@ function render() {
   if (S.page === 'emp') v.innerHTML = empPage();
   else if (S.page === 'att') { v.innerHTML = attPage(); afterAtt(); }
   else if (S.page === 'set') { v.innerHTML = setPage(); if (can('users')) loadUsers(); }
+  else if (S.page === 'pay') v.innerHTML = payPage();
   else v.innerHTML = dashPage();
 }
 
@@ -996,8 +1015,9 @@ function dashPage() {
       }).join('') : '<p class="hint" style="margin-top:8px">কর্মচারী যোগ করলে এখানে দেখাবে।</p>') + '</div>' +
     '</div>' +
     '<div class="card" style="margin-top:14px"><h3>তৈরির ধাপ</h3><div class="steps">' +
-      '<div class="now"><i>🟢</i><span><b>ধাপ ১ — এখন চলছে</b><small>কর্মচারী (তিন প্রতিষ্ঠান), বেতন/রেটের ইতিহাস, খাতা থেকে হাজিরা (দুই বেলা, ক্লাস), ছুটির দিন</small></span></div>' +
-      '<div><i>⚪</i><span><b>ধাপ ২ — বেতন ইঞ্জিন</b><small>সব ধরনের হিসাব, যাচাই, অনুমোদন (মাস তালাবদ্ধ)</small></span></div>' +
+      '<div><i>✅</i><span><b>ধাপ ১ — তৈরি</b><small>কর্মচারী (তিন প্রতিষ্ঠান), বেতন/রেটের ইতিহাস, খাতা থেকে হাজিরা (দুই বেলা, ক্লাস), ছুটির দিন</small></span></div>' +
+      '<div><i>✅</i><span><b>ভূমিকা-অনুমতি — তৈরি</b><small>মালিক, ম্যানেজার, হিসাবরক্ষক, হাজিরা তোলার লোক; প্রত্যেকের নিজের PIN</small></span></div>' +
+      '<div class="now"><i>🟢</i><span><b>ধাপ ২ — বেতন ইঞ্জিন (এখন চলছে)</b><small>সব ধরনের হিসাব, সমন্বয়, যাচাই, অনুমোদন (মাস তালাবদ্ধ)</small></span></div>' +
       '<div><i>⚪</i><span><b>ধাপ ৩ — অগ্রিম ও বেতন-রসিদ</b><small>অগ্রিম/সমন্বয়, প্রত্যেকের রসিদ, মাসের বেতন শিট</small></span></div>' +
       '<div><i>⚪</i><span><b>ধাপ ৪ — অনুমতি ও কর্মচারীর পাতা</b><small>কে কী করবেন, কর্মচারী আইডি + পিন দিয়ে নিজের হিসাব, রিপোর্ট</small></span></div>' +
     '</div></div>';
@@ -1365,6 +1385,7 @@ function attPage() {
     '<div class="prog"><small><span>শেষ <b class="num">' + done + '</b> / ' + all.length + ' জন</span><span class="num">' + p + '%</span></small><div class="bar"><i style="width:' + p + '%"></i></div></div></div>';
   if (S.attErr && loading) return head + '<div class="err">' + esc(S.attErr) + ' <button class="btn sm" data-a="att-reload">আবার চেষ্টা</button></div>';
   if (loading) return head + '<div class="card"><div class="sk"></div><div class="sk"></div><div class="sk" style="width:60%"></div></div>';
+  if (S.att.locked) head += '<div class="err" style="background:color-mix(in srgb,var(--pos) 10%,transparent);color:var(--pos)">🔒 ' + monthLabel(S.month) + '-এর বেতন অনুমোদিত — এই মাসের হাজিরা তালাবদ্ধ, বদলানো যাবে না।</div>';
   if (!all.length) return head + '<div class="card empty">' + monthLabel(S.month) + '-এ কোনো কর্মচারী নেই। আগে কর্মচারী যোগ করুন।<br><br><button class="btn pri" data-go="#emp">👥 কর্মচারী</button></div>';
   return head + '<div class="att-split">' +
     '<div class="alist-wrap' + (S.cur ? ' hide-d" hidden data-hm="1' : '') + '">' + attListHtml() + '</div>' +
@@ -1656,7 +1677,7 @@ function entryNav(dir, mustPending) {
 }
 function changeMonth(k) {
   flushSave().then(function () {
-    S.cur = null; S.sel = null; S.month = addMonth(S.month, k); S.att = null; S.attFor = '';
+    S.cur = null; S.sel = null; S.month = addMonth(S.month, k); S.att = null; S.attFor = ''; S.pay = null; S.payFor = '';
     if (S.page === 'att') go('#att'); else route();
   }, function () { toast('আগে সেভ হতে দিন — ইন্টারনেট দেখুন।'); });
 }
@@ -1671,6 +1692,145 @@ function bulkDone(done) {
   }, Promise.resolve()).then(function () {
     S.sel = null; toast('✓ ' + n + ' জন — ' + (done ? 'তোলা শেষ' : 'আবার খোলা হলো')); render();
   }, function (err) { toast(err.message, 5000); render(); });
+}
+
+/* ═════════ বেতন ═════════
+ * হিসাব সার্ভারে (Pay ফাইল) — এখানে শুধু দেখানো, সমন্বয়, তৈরি/অনুমোদনের বোতাম */
+S.pay = null; S.payFor = ''; S.pf = { q: '', org: '', flag: false };
+function ensurePay(month, force) {
+  if (!force && S.payFor === month && S.pay) return Promise.resolve(S.pay);
+  S.payErr = '';
+  return callServer('apiPayMonth', [month]).then(function (d) {
+    if (S.month === month) { S.pay = d; S.payFor = month; }
+    return d;
+  }, function (err) {
+    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); throw err; }
+    S.payErr = err.message; render(); throw err;
+  });
+}
+function setPay(d) {
+  // অনুমোদন/খোলায় হাজিরার তালা বদলায় — হাজিরা আবার আনতে হবে
+  var was = S.pay && S.pay.month === d.month && S.pay.st ? S.pay.st.st : '';
+  if (d.st && was && d.st.st !== was && S.attFor === d.month) { S.att = null; S.attFor = ''; }
+  S.pay = d; S.payFor = d.month; render(); if (PF && $('payDet')) drawPayDetail();
+}
+function payRowsF() {
+  var f = S.pf, q = f.q.trim().toLowerCase();
+  return (S.pay.rows || []).filter(function (r) {
+    if (f.org && r.org !== f.org) return false;
+    if (f.flag && !r.flags.length) return false;
+    if (q && (r.name + ' ' + r.emp).toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  }).sort(function (a, b) { return bySheet(empById(a.emp) || { id: a.emp, dept: a.dept }, empById(b.emp) || { id: b.emp, dept: b.dept }); });
+}
+function flagIcons(r) {
+  var bad = r.flags.filter(function (f) { return f.bad; }).length, warn = r.flags.length - bad;
+  return (bad ? '<span class="chip bad" title="' + esc(r.flags.map(function (f) { return f.t; }).join('\n')) + '">⛔ ' + bad + '</span>' : '') +
+         (warn ? '<span class="chip warn" title="' + esc(r.flags.map(function (f) { return f.t; }).join('\n')) + '">⚠️ ' + warn + '</span>' : '');
+}
+function payPage() {
+  var d = S.payFor === S.month ? S.pay : null, st = d && d.st;
+  var dt = function (t) { return t ? new Date(t).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''; };
+  var head = '<div class="ph"><div><h2>বেতন</h2><p>হাজিরা আর বেতনের হার থেকে প্রত্যেকের হিসাব — প্রতিটা টাকার পাশে কীভাবে এল লেখা থাকে।</p></div></div>' +
+    '<div class="mbar" style="margin-bottom:14px"><div class="mnav"><button data-a="m-prev" title="আগের মাস">◀</button><b>' + monthLabel(S.month) + '</b><button data-a="m-next" title="পরের মাস">▶</button></div>' +
+    (st ? (st.st === 'approved' ? '<span class="chip ok">🔒 অনুমোদিত · ' + esc(st.ok.by) + ' · ' + dt(st.ok.at) + '</span>' : '<span class="chip warn">✏️ খসড়া · ' + esc(st.gen.by) + ' · ' + dt(st.gen.at) + '</span>') : '') + '</div>';
+  if (S.payErr && !d) return head + '<div class="err">' + esc(S.payErr) + '</div>';
+  if (!d) return head + '<div class="card"><div class="sk"></div><div class="sk"></div></div>';
+  var attPend = '';
+  if (S.attFor === S.month && S.att) {
+    var inM = S.emps.filter(function (e) { return inMonth(e, S.month); });
+    var nd = inM.filter(function (e) { return !(S.att.rows[e.id] && S.att.rows[e.id].done); }).length;
+    if (nd) attPend = '<p class="hint" style="margin-top:8px">⚠️ ' + nd + ' জনের হাজিরা তোলা এখনো শেষ হয়নি — তাদের বেতনে সতর্কতা দেখাবে।</p>';
+  }
+  if (!d.rows.length || !st || !st.gen) {
+    return head + '<div class="card empty">' + monthLabel(S.month) + '-এর বেতন এখনো তৈরি হয়নি।' + attPend +
+      (can('pay') ? '<br><br><button class="btn pri" data-a="pay-gen">⚙️ বেতন তৈরি করুন</button>' : '<br>হিসাবরক্ষক বা মালিক তৈরি করবেন।') + '</div>';
+  }
+  var rows = d.rows, total = 0, byPay = {}, byOrg = {}, nBad = 0, nWarn = 0;
+  rows.forEach(function (r) {
+    total += r.net;
+    byPay[r.pay || 'cash'] = (byPay[r.pay || 'cash'] || 0) + r.net;
+    var o = r.org || 'প্রতিষ্ঠান দেওয়া নেই'; byOrg[o] = (byOrg[o] || 0) + r.net;
+    if (r.flags.some(function (f) { return f.bad; })) nBad++; else if (r.flags.length) nWarn++;
+  });
+  var draft = st.st !== 'approved';
+  var acts = '<div class="acts">' +
+    (draft && can('pay') ? '<button class="btn" data-a="pay-gen">⟳ আবার হিসাব</button>' : '') +
+    (draft && can('approve') ? '<button class="btn pri" data-a="pay-approve"' + (st.dirty ? ' disabled title="আগে আবার হিসাব করুন"' : '') + '>✓ অনুমোদন — মাস তালাবদ্ধ</button>' : '') +
+    (!draft && can('approve') ? '<button class="btn" data-a="pay-unlock">🔓 তালা খুলুন</button>' : '') + '</div>';
+  var list = payRowsF();
+  return head +
+    (st.dirty && draft ? '<div class="err" style="background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn)">⚠️ বেতন তৈরির পরে হাজিরা, হার বা নিয়ম বদলেছে — "আবার হিসাব" করুন। তার আগে অনুমোদন হবে না।</div>' : '') +
+    (st.unlocked && draft ? '<p class="hint" style="margin-bottom:10px">🔓 তালা খুলেছেন ' + esc(st.unlocked.by) + ' · ' + dt(st.unlocked.at) + ' · কারণ: ' + esc(st.unlocked.reason) + '</p>' : '') +
+    '<div class="stats">' +
+      '<div class="stat"><i>💰</i><div><small>মোট পাওনা</small><b class="num">' + tk(total) + '</b></div></div>' +
+      '<div class="stat"><i>👥</i><div><small>কর্মচারী</small><b class="num">' + rows.length + '</b></div></div>' +
+      '<div class="stat"><i>⛔</i><div><small>জরুরি সমস্যা</small><b class="num" style="color:' + (nBad ? 'var(--neg)' : 'inherit') + '">' + nBad + '</b></div></div>' +
+      '<div class="stat"><i>⚠️</i><div><small>দেখে নেওয়ার মতো</small><b class="num" style="color:' + (nWarn ? 'var(--warn)' : 'inherit') + '">' + nWarn + '</b></div></div>' +
+    '</div>' +
+    '<div class="cols2" style="margin-bottom:14px">' +
+      '<div class="card"><h3>পরিশোধের পদ্ধতি অনুযায়ী</h3>' + Object.keys(PAYS).filter(function (k) { return byPay[k]; }).map(function (k) {
+        return '<div class="brow mny"><span>' + PAYS[k] + '</span><div class="bar"><i style="width:' + Math.round(byPay[k] / (total || 1) * 100) + '%"></i></div><b class="num">' + tk(byPay[k]) + '</b></div>';
+      }).join('') + '</div>' +
+      '<div class="card"><h3>প্রতিষ্ঠান অনুযায়ী</h3>' + Object.keys(byOrg).map(function (o) {
+        return '<div class="brow mny"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(o) + '">' + esc(o) + '</span><div class="bar"><i style="width:' + Math.round(byOrg[o] / (total || 1) * 100) + '%"></i></div><b class="num">' + tk(byOrg[o]) + '</b></div>';
+      }).join('') + '</div>' +
+    '</div>' +
+    '<div class="tools">' +
+      '<input class="in" id="pfQ" placeholder="🔍 নাম বা আইডি" value="' + esc(S.pf.q) + '">' +
+      (orgs().length > 1 ? '<select class="sel" id="pfOrg"><option value="">সব প্রতিষ্ঠান</option>' + orgs().map(function (o) { return '<option' + (S.pf.org === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' : '') +
+      '<div class="seg" id="pfFlag"><button data-v="0" class="' + (S.pf.flag ? '' : 'on') + '">সবাই</button><button data-v="1" class="' + (S.pf.flag ? 'on' : '') + '">শুধু সতর্কতা</button></div>' +
+      acts +
+    '</div>' +
+    '<div class="list" id="payList">' + payListHtml(list) + '</div>';
+}
+function payListHtml(list) {
+  if (!list.length) return '<div class="empty">এই খোঁজে কাউকে পাওয়া যায়নি।</div>';
+  var sum = 0; list.forEach(function (r) { sum += r.net; });
+  return '<div class="phead prow"><span>নাম</span><span>ভিত্তি</span><span>আয়</span><span>কাটা</span><span>সমন্বয়</span><span>মোট পাওনা</span><span></span></div>' +
+    list.map(function (r) {
+      return '<div class="prow" data-a="pay-open" data-id="' + esc(r.emp) + '">' +
+        '<span><b>' + esc(r.name) + '</b><small>' + esc(r.emp) + (r.org ? ' · ' + esc(r.org) : '') + ' · ' + (PAYS[r.pay] || '') + '</small></span>' +
+        '<span class="pm">' + (BASES[r.basis] || '') + '</span>' +
+        '<span class="num pm">' + tk(r.earn) + '</span>' +
+        '<span class="num pm" style="color:' + (r.ded ? 'var(--neg)' : 'var(--ink3)') + '">' + (r.ded ? '−' + tk(r.ded) : '—') + '</span>' +
+        '<span class="num pm" style="color:' + (r.adj ? (r.adj > 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--ink3)') + '">' + (r.adj ? (r.adj > 0 ? '+' : '−') + tk(Math.abs(r.adj)) : '—') + '</span>' +
+        '<span class="num"><b>' + tk(r.net) + '</b></span>' +
+        '<span class="pf">' + flagIcons(r) + '</span></div>';
+    }).join('') + '<div class="lfoot">' + list.length + ' জন · মোট <b class="num">' + tk(sum) + '</b></div>';
+}
+function refreshPayList() { if ($('payList')) $('payList').innerHTML = payListHtml(payRowsF()); }
+
+/* ---------- একজনের বেতনের বিবরণ + সমন্বয় ---------- */
+var PF = null;
+function openPayDetail(id) {
+  PF = { id: id, sign: 1 };
+  var r = S.pay.rows.filter(function (x) { return x.emp === id; })[0];
+  openSheet(esc(r ? r.name : id) + ' — ' + monthLabel(S.month), '<div id="payDet"></div>');
+  drawPayDetail();
+}
+function drawPayDetail() {
+  var b = $('payDet'); if (!b || !PF) return;
+  var r = S.pay.rows.filter(function (x) { return x.emp === PF.id; })[0];
+  if (!r) { b.innerHTML = '<p class="hint">এই মাসের হিসাবে নেই।</p>'; return; }
+  var draft = S.pay.st && S.pay.st.st !== 'approved', adj = (S.pay.adj || {})[PF.id] || [];
+  b.innerHTML = (r.flags.length ? '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">' + r.flags.map(function (f) {
+      return '<div class="err" style="margin:0;' + (f.bad ? '' : 'background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn)') + '">' + (f.bad ? '⛔ ' : '⚠️ ') + esc(f.t) + '</div>';
+    }).join('') + '</div>' : '') +
+    '<div class="plines">' + r.lines.map(function (l) {
+      return '<div class="pl ' + (l.k || '') + '"><span>' + esc(l.t) + '</span><b class="num">' + (l.k === 'info' ? '—' : (l.a < 0 ? '−' : l.k === 'adj' ? '+' : '') + tk(Math.abs(l.a))) + '</b></div>';
+    }).join('') +
+    '<div class="pl tot"><span>আয় ' + tk(r.earn) + ' − কাটা ' + tk(r.ded) + (r.adj ? (r.adj > 0 ? ' + ' : ' − ') + 'সমন্বয় ' + tk(Math.abs(r.adj)) : '') + '</span><b class="num">' + tk(r.net) + '</b></div></div>' +
+    '<p class="hint" style="margin-top:8px">পরিশোধ: ' + (PAYS[r.pay] || '—') + (r.acct ? ' · ' + esc(r.acct) : '') + ' · <a href="#att/' + encodeURIComponent(r.emp) + '" data-a="close">🗓️ এ মাসের হাজিরা দেখুন</a></p>' +
+    '<div class="sh-sec">সমন্বয় (বোনাস / অন্যান্য কর্তন)</div>' +
+    (adj.length ? '<div class="rates">' + adj.map(function (a) {
+      return '<div class="rate"><span><b class="num" style="color:' + (a.amount > 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (a.amount > 0 ? '+' : '−') + tk(Math.abs(a.amount)) + '</b> — ' + esc(a.reason) + '<small>' + esc(a.by) + '</small></span>' +
+        (draft && can('pay') ? '<button class="x" type="button" data-a="adj-del" data-v="' + esc(a.aid) + '" title="মুছুন">✕</button>' : '') + '</div>';
+    }).join('') + '</div>' : '<p class="hint">কোনো সমন্বয় নেই।</p>') +
+    (draft && can('pay') ? '<div class="addr" style="grid-template-columns:auto 1fr 2fr auto"><div class="seg" style="align-self:end"><button type="button" data-a="adj-sign" data-v="1" class="' + (PF.sign > 0 ? 'on' : '') + '">＋ যোগ</button><button type="button" data-a="adj-sign" data-v="-1" class="' + (PF.sign < 0 ? 'on' : '') + '">− কাটা</button></div>' +
+      '<div><label class="fl">টাকা</label><input class="in num" id="adj_amt" inputmode="decimal"></div>' +
+      '<div><label class="fl">কারণ</label><input class="in" id="adj_rs" maxlength="100" placeholder="যেমন: ঈদ বোনাস"></div>' +
+      '<button class="btn" type="button" data-a="adj-add">যোগ করুন</button></div>' : '');
 }
 
 /* ═════════ সেটিংস ═════════ */
@@ -1802,7 +1962,7 @@ function openSheet(title, html, o) {
   $('ovHost').innerHTML = '<div class="ov' + (o.drawer ? ' drawer' : '') + '" id="ov"><div class="sheet' + (o.wide ? ' wide' : '') + '"><div class="sh-h"><h3>' + title + '</h3><button class="btn sm" data-a="close">✕</button></div>' + html + '</div></div>';
   $('ov').addEventListener('mousedown', function (e) { if (e.target.id === 'ov') closeOv(); });
 }
-function closeOv() { $('ovHost').innerHTML = ''; F = null; }
+function closeOv() { $('ovHost').innerHTML = ''; F = null; PF = null; }
 
 /* ═════════ সব ক্লিক এক জায়গায় ═════════ */
 document.addEventListener('click', function (ev) {
@@ -1828,6 +1988,7 @@ document.addEventListener('click', function (ev) {
   var sg = t.closest('.seg button');
   if (sg && sg.parentNode.id === 'efSt') { S.ef.st = sg.getAttribute('data-v'); render(); return; }
   if (sg && sg.parentNode.id === 'afSt') { S.af.st = sg.getAttribute('data-v'); refreshAttList(); return; }
+  if (sg && sg.parentNode.id === 'pfFlag') { S.pf.flag = sg.getAttribute('data-v') === '1'; render(); return; }
   if (sg && sg.parentNode.getAttribute('data-fseg') === 'theme') { THEME = sg.getAttribute('data-v'); try { localStorage.setItem('sal_theme', THEME); } catch (e) {} applyTheme(); render(); return; }
   if (sg && sg.parentNode.getAttribute('data-fseg') === 'lateRule') { sg.parentNode.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === sg); }); return; }
 
@@ -1901,6 +2062,31 @@ document.addEventListener('click', function (ev) {
       (navigator.clipboard ? navigator.clipboard.writeText(line) : Promise.reject()).then(function () { toast('✓ কপি হয়েছে — এক্সেলের প্রথম সারিতে পেস্ট করুন'); }, function () { prompt('কপি করুন:', line); }); break;
     case 'imp-save': saveImport(); break;
 
+    case 'pay-gen':
+      a.disabled = true; a.textContent = '⏳ হিসাব হচ্ছে…';
+      callServer('apiPayGenerate', [S.month]).then(function (d) { setPay(d); toast('✓ ' + d.rows.length + ' জনের বেতন হিসাব হয়েছে'); },
+        function (err) { toast(err.message, 5000); render(); }); break;
+    case 'pay-approve':
+      var pr = S.pay.rows, tot = 0, bad = 0;
+      pr.forEach(function (r) { tot += r.net; if (r.flags.some(function (f) { return f.bad; })) bad++; });
+      if (!confirm(monthLabel(S.month) + '-এর বেতন অনুমোদন করবেন?\n' + pr.length + ' জন · মোট ' + tk(tot) + (bad ? '\n⛔ ' + bad + ' জনের জরুরি সমস্যা আছে!' : '') + '\n\nঅনুমোদনের পর এই মাসের হাজিরা, সমন্বয় কিছুই বদলানো যাবে না।')) return;
+      a.disabled = true;
+      callServer('apiPayApprove', [S.month]).then(function (d) { setPay(d); toast('🔒 অনুমোদিত — মাস তালাবদ্ধ'); }, function (err) { a.disabled = false; toast(err.message, 5000); }); break;
+    case 'pay-unlock':
+      var why = prompt('কেন তালা খুলছেন? (কার্যতালিকায় থাকবে)');
+      if (!why || !why.trim()) return;
+      callServer('apiPayUnlock', [S.month, why.trim()]).then(function (d) { setPay(d); toast('🔓 তালা খোলা হয়েছে'); }, function (err) { toast(err.message, 5000); }); break;
+    case 'pay-open': openPayDetail(id); break;
+    case 'adj-sign': PF.sign = +a.getAttribute('data-v'); drawPayDetail(); break;
+    case 'adj-add':
+      var amt = Number(bnDigits($('adj_amt').value).replace(/[,৳\s]/g, '')), rs = $('adj_rs').value.trim();
+      if (!(amt > 0)) { toast('টাকার অঙ্ক দিন।'); $('adj_amt').focus(); return; }
+      if (!rs) { toast('কারণ লিখুন।'); $('adj_rs').focus(); return; }
+      a.disabled = true;
+      callServer('apiAddAdj', [S.month, PF.id, PF.sign * amt, rs]).then(function (d) { setPay(d); toast('✓ সমন্বয় যোগ হয়েছে'); }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'adj-del':
+      if (!confirm('এই সমন্বয়টা মুছবেন?')) return;
+      callServer('apiDelAdj', [a.getAttribute('data-v')]).then(function (d) { setPay(d); }, function (err) { toast(err.message, 4500); }); break;
     case 'm-prev': changeMonth(-1); break;
     case 'm-next': changeMonth(1); break;
     case 'att-reload': S.attErr = ''; ensureAtt(S.month, true).then(route, function () {}); break;
@@ -1965,6 +2151,7 @@ document.addEventListener('click', function (ev) {
 document.addEventListener('input', function (ev) {
   var t = ev.target;
   if (t.id === 'efQ') { S.ef.q = t.value; refreshEmpList(); }
+  else if (t.id === 'pfQ') { S.pf.q = t.value; refreshPayList(); }
   else if (F && /^f_(tin|tout|tin2|tout2|brk)$/.test(t.id)) { readEmpForm(); if ($('f_hrs')) $('f_hrs').innerHTML = hrsTxt(F.e); }
 });
 document.addEventListener('change', function (ev) {
@@ -1972,6 +2159,7 @@ document.addEventListener('change', function (ev) {
   if (t.id === 'efDept') { S.ef.dept = t.value; refreshEmpList(); }
   else if (t.id === 'efType') { S.ef.type = t.value; refreshEmpList(); }
   else if (t.id === 'efOrg') { S.ef.org = t.value; refreshEmpList(); }
+  else if (t.id === 'pfOrg') { S.pf.org = t.value; refreshPayList(); }
   else if (t.id === 'afOrg') { S.af.org = t.value; refreshAttList(); }
 });
 document.addEventListener('keydown', function (ev) {
@@ -2032,7 +2220,7 @@ $('lgForm').addEventListener('submit', function (e) {
 $('lgBack').addEventListener('click', function () { lgStep(1); });
 
 function logoutLocal() {
-  setAuth(''); S.booted = false; S.cur = null; S.att = null; S.attFor = ''; closeOv();
+  setAuth(''); S.booted = false; S.cur = null; S.att = null; S.attFor = ''; S.pay = null; S.payFor = ''; closeOv();
   showLogin();
 }
 
