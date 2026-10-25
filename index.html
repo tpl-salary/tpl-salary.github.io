@@ -1,0 +1,1802 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Salary System</title>
+<meta name="theme-color" content="#0e7490">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Salary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@800&display=swap" rel="stylesheet">
+<script>
+/* =========================================================
+ *  Salary System — কর্মচারী, বেতনের হার, হাজিরা (ধাপ ১)
+ *  API_URL = Salary System-এর Apps Script ("Anyone" deployment) /exec লিংক।
+ *  পেজ public — কোনো গোপন তথ্য নেই; নিরাপত্তা লগইন টোকেন + PIN থেকে।
+ * ========================================================= */
+var API_URL = 'https://script.google.com/macros/s/AKfycbxK6TuldzYQ9cmT5LOfnmBs9EMZhjSyFweej24acFBfWvfWDIYu0DKe092U14qM7tOp/exec';
+
+// github.io-র সব রিপোজিটরি একই storage ভাগ করতে পারে — তাই সব key-তে "sal_"
+var AUTH_KEY = 'sal_auth', BOOT_KEY = 'sal_boot_v1';
+var AUTH = '';
+try { AUTH = localStorage.getItem(AUTH_KEY) || ''; } catch (e) {}
+function setAuth(t) {
+  AUTH = t || '';
+  try { if (AUTH) localStorage.setItem(AUTH_KEY, AUTH); else { localStorage.removeItem(AUTH_KEY); localStorage.removeItem(BOOT_KEY); } } catch (e) {}
+}
+
+var THEME = 'auto';
+try { THEME = localStorage.getItem('sal_theme') || 'auto'; } catch (e) {}
+function applyTheme() {
+  var t = THEME === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : THEME;
+  document.documentElement.setAttribute('data-theme', t);
+}
+applyTheme();
+
+var ORG = 'TECHNIQUE PUBLICATION';
+try { var _b = JSON.parse(localStorage.getItem(BOOT_KEY) || 'null'); if (_b && _b.data && _b.data.set) ORG = _b.data.set.org || ORG; } catch (e) {}
+
+/* text/plain POST — preflight ছাড়াই সরাসরি Apps Script-এ */
+function callServer(fn, args) {
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args || [], auth: AUTH })
+  }).then(function (r) {
+    if (!r.ok) throw new Error('সার্ভার সাড়া দিচ্ছে না (' + r.status + ') — একটু পরে আবার চেষ্টা করুন।');
+    return r.json().catch(function () { throw new Error('সার্ভারের উত্তর বোঝা যায়নি।'); });
+  }, function () {
+    throw new Error('সার্ভারে পৌঁছানো যায়নি — ইন্টারনেট সংযোগ দেখুন।');
+  }).then(function (j) {
+    if (!j || !j.ok) throw new Error((j && j.error) || 'অজানা সমস্যা।');
+    return j.data;
+  });
+}
+
+/* ব্যক্তিগত লোগো "Matra Logic" — Developed By-এর সামনে */
+function markSvg(cls) {
+  return '<svg class="mk ' + (cls || '') + '" viewBox="0 0 100 100" aria-hidden="true">' +
+    '<path d="M8 18H92M16 88 40 18 64 88" fill="none" stroke="url(#mkg)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M84 18V88" fill="none" stroke="url(#mkg)" stroke-width="9" stroke-linecap="round"/>' +
+    '<circle cx="40" cy="64" r="7.5" fill="url(#mkg)"/></svg>';
+}
+</script>
+<style>
+:root{
+  --bg:#f1f5f9; --card:#ffffff; --ink:#0f1b2d; --ink2:#43536a; --ink3:#8091a7;
+  --line:#e2e8f0; --soft:#f3f6fa; --shadow:0 1px 2px rgba(15,27,45,.05),0 8px 24px rgba(15,27,45,.06);
+  --acc:#0e7490; --acc-s:rgba(14,116,144,.12); --grad:linear-gradient(135deg,#0f766e,#0e7490 55%,#1d4ed8);
+  --pos:#15803d; --neg:#dc2626; --warn:#b45309; --top:rgba(255,255,255,.85);
+  --m1:#6366f1; --m2:#8b5cf6; --m3:#d946ef;
+  --sP:#16a34a; --sA:#dc2626; --sL:#2563eb; --sU:#d97706; --sH:#9333ea; --sO:#94a3b8;
+}
+[data-theme=dark]{
+  --bg:#0b1220; --card:#131c2e; --ink:#e8eef8; --ink2:#b3c0d4; --ink3:#7889a3;
+  --line:#22304a; --soft:#18233a; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
+  --acc:#22d3ee; --acc-s:rgba(34,211,238,.13); --pos:#4ade80; --neg:#f87171; --warn:#fbbf24; --top:rgba(13,20,34,.85);
+  --sP:#4ade80; --sA:#f87171; --sL:#60a5fa; --sU:#fbbf24; --sH:#c084fc; --sO:#64748b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:'Hind Siliguri','Inter','Nirmala UI',system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(900px 600px at -5% -10%,rgba(13,148,136,.16),transparent 62%),
+             radial-gradient(800px 600px at 105% 0%,rgba(37,99,235,.13),transparent 60%),var(--bg);
+  background-attachment:fixed}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+.num{font-family:'Inter',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+[hidden]{display:none!important}
+a{color:var(--acc)}
+
+/* ---------- লগইন ---------- */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:radial-gradient(circle at 18% 14%,#0f766e 0,transparent 45%),radial-gradient(circle at 86% 90%,#1d4ed8 0,transparent 42%),#0b1626}
+.lg-card{width:100%;max-width:370px;background:#fff;color:#14202f;border-radius:24px;padding:30px 22px 20px;
+  box-shadow:0 24px 60px rgba(0,0,0,.45);text-align:center}
+.lg-card .ic{width:72px;height:72px;border-radius:20px;display:block;margin:0 auto 12px;box-shadow:0 10px 24px rgba(14,116,144,.3)}
+.lg-card h1{font:800 22px 'Plus Jakarta Sans','Inter',sans-serif;letter-spacing:-.02em;margin-bottom:2px}
+.lg-card .sub{font-size:13.5px;color:#6b7c93;margin-bottom:20px}
+.lg-card label{display:block;text-align:left;font-size:13px;font-weight:700;color:#3c4a5c;margin:0 0 5px}
+.lg-card input{width:100%;padding:13px 14px;border:2px solid #dde5ee;border-radius:13px;font:600 16px 'Inter',sans-serif;outline:none;color:#14202f;background:#fff}
+.lg-card input:focus{border-color:#0e7490;box-shadow:0 0 0 3px rgba(14,116,144,.15)}
+.lg-card input.code{letter-spacing:8px;text-align:center;font-size:22px}
+.lg-btn{width:100%;margin-top:12px;padding:14px;border:0;border-radius:13px;color:#fff;font-size:15.5px;font-weight:700;
+  background:linear-gradient(135deg,#0f766e,#0e7490 55%,#1d4ed8);box-shadow:0 8px 20px rgba(14,116,144,.35)}
+.lg-btn:disabled{opacity:.6;cursor:wait}
+.lg-msg{min-height:20px;margin-top:10px;font-size:13px;font-weight:600;color:#c0392b;line-height:1.5}
+.lg-msg.ok{color:#2d6a4f}
+.lg-link{background:none;border:0;color:#0e7490;font-size:13px;font-weight:700;margin-top:8px}
+
+/* ---------- কাঠামো ---------- */
+.shell{min-height:100vh}
+.side{display:none}
+.topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:var(--top);border-bottom:1px solid var(--line)}
+.topbar-in{padding:10px 16px;display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:11px;min-width:0;flex:1}
+.brand img{width:40px;height:40px;border-radius:12px;flex:none;box-shadow:0 4px 12px rgba(14,116,144,.25)}
+.brand b{display:block;font:800 17px 'Plus Jakarta Sans','Inter',sans-serif;letter-spacing:-.02em;line-height:1.2}
+.brand small{display:block;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{height:40px;min-width:40px;padding:0 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:15px;flex:none}
+.ib:hover{border-color:var(--acc)}
+.ib:disabled{opacity:.35;cursor:default}
+.mob{display:none}
+.menu{position:absolute;right:16px;top:58px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px;min-width:210px;z-index:30}
+.menu button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;color:var(--ink);padding:11px 12px;border-radius:9px;font-size:14.5px;text-align:left}
+.menu button:hover{background:var(--soft)}
+main{padding:16px 16px 96px;max-width:1280px;margin:0 auto}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(4,1fr);background:var(--top);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+.bnav button{border:0;background:none;color:var(--ink3);display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border-radius:12px;font-size:12px;font-weight:600}
+.bnav button i{font-style:normal;font-size:19px;line-height:1.2}
+.bnav button.on{color:var(--acc);background:var(--acc-s)}
+.dev-foot{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:var(--ink3);margin:26px 0 4px}
+.dev-foot b{font:800 12.5px 'Plus Jakarta Sans','Inter',sans-serif;color:var(--ink2)}
+.mk{width:18px;height:18px;flex:none}
+@media(min-width:1000px){
+  .shell{display:grid;grid-template-columns:250px 1fr}
+  .side{display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:18px 14px;border-right:1px solid var(--line);background:var(--top);backdrop-filter:blur(14px)}
+  .side .brand{flex:none;margin:0 4px 22px}
+  .side nav{display:flex;flex-direction:column;gap:4px}
+  .side nav button{display:flex;align-items:center;gap:11px;border:0;background:none;color:var(--ink2);padding:11px 12px;border-radius:12px;font-size:15px;font-weight:600;text-align:left}
+  .side nav button i{font-style:normal;font-size:18px;width:24px;text-align:center}
+  .side nav button:hover{background:var(--soft)}
+  .side nav button.on{background:var(--acc-s);color:var(--acc)}
+  .side .s-tools{margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:12px}
+  .side .s-tools button{border:0;background:none;color:var(--ink2);text-align:left;padding:8px 12px;border-radius:10px;font-size:13.5px}
+  .side .s-tools button:hover{background:var(--soft)}
+  .side .s-me{font-size:12px;color:var(--ink3);padding:4px 12px 8px;overflow-wrap:anywhere}
+  .side .s-foot{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink3);padding:10px 12px 0}
+  .side .s-foot b{font:800 12px 'Plus Jakarta Sans','Inter',sans-serif;color:var(--ink2)}
+  .side .s-foot span{white-space:nowrap;font-size:11px}
+  .topbar,.bnav,.dev-foot{display:none}
+  main{padding:24px 28px 40px}
+}
+
+/* ---------- সাধারণ ---------- */
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ph h2{font-size:22px;font-weight:700;line-height:1.25}
+.ph p{font-size:13.5px;color:var(--ink3);margin-top:2px}
+.ph .acts{display:flex;gap:8px;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card h3{font-size:16px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card .hint{font-size:13px;color:var(--ink3);line-height:1.55}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:9px 14px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(14,116,144,.25)}
+.btn.red{color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,var(--line))}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:10px}
+.btn:disabled{opacity:.55;cursor:default}
+.in,.sel{width:100%;min-width:0;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14.5px;outline:none}
+.in:focus,.sel:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-s)}
+textarea.in{resize:vertical;min-height:120px;font-family:'Inter',monospace;font-size:13px}
+.fl{display:block;font-size:12.5px;font-weight:700;color:var(--ink2);margin:12px 0 5px}
+.fl em{font-style:normal;font-weight:500;color:var(--ink3)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
+.seg{display:flex;flex-wrap:wrap;background:var(--soft);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1 1 auto;border:0;background:none;color:var(--ink2);padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:600;white-space:nowrap}
+.seg button.on{background:var(--card);color:var(--acc);box-shadow:var(--shadow)}
+.days7{display:flex;gap:6px;flex-wrap:wrap}
+.days7 button{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:10px;padding:7px 10px;font-size:13.5px;font-weight:600;min-width:52px}
+.days7 button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.sw{position:relative;width:44px;height:26px;border-radius:99px;background:var(--line);border:0;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.sw.on{background:var(--acc)} .sw.on::after{left:21px}
+.swrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--soft);margin-top:8px}
+.swrow span{flex:1;font-size:14px}
+.swrow small{display:block;font-size:12px;color:var(--ink3)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;padding:3px 9px;border-radius:99px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+.chip b{font-family:'Inter',sans-serif}
+.chip.acc{background:var(--acc-s);color:var(--acc)}
+.chip.bad{background:color-mix(in srgb,var(--neg) 12%,transparent);color:var(--neg)}
+.chip.ok{background:color-mix(in srgb,var(--pos) 13%,transparent);color:var(--pos)}
+.chip.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.chip button{border:0;background:none;color:inherit;font-size:13px;padding:0 0 0 2px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#0f1b2d;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:92vw;text-align:center}
+@media(min-width:1000px){.toast{bottom:28px}}
+.sk{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--soft),var(--line),var(--soft));background-size:200% 100%;animation:sh 1.3s infinite;margin:10px 0}
+@keyframes sh{to{background-position:-200% 0}}
+.empty{text-align:center;padding:36px 16px;color:var(--ink3);font-size:14.5px;line-height:1.6}
+.err{padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--neg) 9%,transparent);color:var(--neg);font-size:13.5px;line-height:1.5;margin-bottom:12px}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--grad)}
+
+/* ---------- সারাংশ ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:14px;display:flex;gap:12px;align-items:center;min-width:0}
+.stat i{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-style:normal;font-size:19px;background:var(--acc-s);flex:none}
+.stat small{display:block;font-size:12.5px;color:var(--ink3)}
+.stat b{display:block;font:800 21px 'Inter',sans-serif;line-height:1.25}
+.stat b em{font-style:normal;font-size:13px;color:var(--ink3);font-weight:600}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.cols2>.card{margin-bottom:0}
+.brow{display:grid;grid-template-columns:130px 1fr 44px;gap:10px;align-items:center;font-size:14px;margin-top:10px}
+.brow .bar{height:10px}
+.brow b{text-align:right}
+.steps{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.steps div{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:9px 11px;border-radius:12px;background:var(--soft)}
+.steps div i{font-style:normal}
+.steps div small{display:block;font-size:12.5px;color:var(--ink3)}
+.steps div.now{background:var(--acc-s)}
+
+/* ---------- কর্মচারী তালিকা ---------- */
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.tools .in,.tools .sel{width:auto;flex:1 1 160px}
+.tools .seg{flex:none}
+.list{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.lhead,.erow{display:grid;grid-template-columns:70px minmax(0,2fr) 130px minmax(0,1.2fr) minmax(0,1.1fr);gap:12px;align-items:center;padding:11px 16px}
+.lhead{font-size:12px;font-weight:700;color:var(--ink3);background:var(--soft);border-bottom:1px solid var(--line)}
+.erow{border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.erow:last-child{border-bottom:0}
+.erow:hover{background:var(--soft)}
+.erow.off{opacity:.55}
+.erow b{font-weight:700}
+.erow small{display:block;font-size:12.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.erow>span{min-width:0}
+.eid{font:700 13px 'Inter',sans-serif;color:var(--ink2)}
+.tp{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;justify-self:start;white-space:nowrap}
+.tp.fixed{background:#e0f2fe;color:#0369a1} .tp.hourly{background:#fef3c7;color:#92400e} .tp.part{background:#ede9fe;color:#6d28d9} .tp.contract{background:#dcfce7;color:#166534}
+[data-theme=dark] .tp.fixed{background:#0c3a52;color:#7dd3fc} [data-theme=dark] .tp.hourly{background:#47330c;color:#fcd34d}
+[data-theme=dark] .tp.part{background:#33255e;color:#c4b5fd} [data-theme=dark] .tp.contract{background:#123d24;color:#86efac}
+.lfoot{padding:10px 16px;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line)}
+
+/* ---------- শিট / ড্রয়ার ---------- */
+.ov{position:fixed;inset:0;background:rgba(8,14,26,.55);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:620px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 18px 22px;overscroll-behavior:contain}
+.sheet.wide{max-width:980px}
+.sh-h{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:-18px;background:var(--card);padding:4px 0 10px;margin-top:-4px;z-index:2}
+.sh-h h3{font-size:18px}
+.sh-sec{font-size:13px;font-weight:800;color:var(--acc);margin:20px 0 2px;padding-top:14px;border-top:1px dashed var(--line);text-transform:none}
+.sh-sec:first-of-type{border-top:0;padding-top:0;margin-top:6px}
+.sh-f{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;position:sticky;bottom:-22px;background:var(--card);padding:12px 0 4px}
+.sh-f .grow{flex:1}
+@media(min-width:720px){.ov{align-items:center}.sheet{border-radius:22px}}
+@media(min-width:1000px){
+  .ov.drawer{justify-content:flex-end;align-items:stretch}
+  .ov.drawer .sheet{max-width:600px;max-height:none;height:100vh;border-radius:22px 0 0 22px}
+}
+.rates{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.rate{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:12px;background:var(--soft);font-size:14px}
+.rate span{flex:1;min-width:0}
+.rate small{display:block;font-size:12px;color:var(--ink3)}
+.rate.cur{background:var(--acc-s)}
+.rate .x{border:0;background:none;color:var(--ink3);font-size:15px;padding:4px 6px;border-radius:8px}
+.rate .x:hover{color:var(--neg)}
+.addr{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:8px;align-items:end}
+.ptab{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;margin-top:10px}
+.ptab th{text-align:left;font-size:12px;color:var(--ink3);padding:6px 8px;background:var(--soft);white-space:nowrap}
+.ptab td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.ptab tr.bad td{background:color-mix(in srgb,var(--neg) 7%,transparent)}
+.ptab td.e{color:var(--neg);font-weight:600}
+.pwrap{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
+
+/* ---------- হাজিরা ---------- */
+.mbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mnav{display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:var(--shadow)}
+.mnav button{border:0;background:none;width:36px;height:36px;border-radius:10px;font-size:15px;color:var(--ink2)}
+.mnav button:hover{background:var(--soft)}
+.mnav b{min-width:128px;text-align:center;font-size:15.5px}
+.prog{flex:1 1 200px;min-width:180px}
+.prog small{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink3);margin-bottom:5px}
+.att-split{display:block}
+@media(min-width:1180px){
+  .att-split{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+  .att-split .alist-wrap{position:sticky;top:16px;max-height:calc(100vh - 32px);display:flex;flex-direction:column}
+  .att-split .alist-wrap .list{overflow:auto;flex:1}
+  .att-split .alist-wrap.hide-d{display:flex!important}
+  .att-split .entry-wrap.hide-d{display:block!important}
+}
+.arow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.arow:last-child{border-bottom:0}
+.arow:hover{background:var(--soft)}
+.arow.on{background:var(--acc-s)}
+.arow .anm{flex:1;min-width:0}
+.arow .anm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .anm small{display:block;font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc);flex:none}
+.badge{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;flex:none}
+.badge.no{background:var(--soft);color:var(--ink3)} .badge.go{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.badge.ok{background:color-mix(in srgb,var(--pos) 14%,transparent);color:var(--pos)}
+.bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:10px;border-radius:14px;background:#0f1b2d;color:#fff;font-size:13.5px}
+.bulk .btn{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.18)}
+.bulk .btn.pri{background:var(--grad)}
+.bulk b{flex:1}
+
+.ehead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ehead .who{flex:1;min-width:0}
+.ehead .who b{display:block;font-size:18px;line-height:1.3}
+.ehead .who small{display:block;font-size:13px;color:var(--ink3)}
+.einfo{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sums{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-top:12px}
+.sum{background:var(--soft);border-radius:12px;padding:8px 10px}
+.sum small{display:block;font-size:11.5px;color:var(--ink3)}
+.sum b{font:800 18px 'Inter',sans-serif}
+.sum.a b{color:var(--sA)} .sum.l b{color:var(--sL)} .sum.u b{color:var(--sU)} .sum.h b{color:var(--sH)} .sum.p b{color:var(--sP)}
+.etools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 8px}
+.etools .grow{flex:1}
+.save-st{font-size:12.5px;color:var(--ink3);white-space:nowrap}
+.save-st.bad{color:var(--neg);font-weight:700}
+.keys{font-size:12px;color:var(--ink3);line-height:1.6;background:var(--soft);border-radius:10px;padding:7px 10px;margin-bottom:8px}
+.keys kbd{font:700 11px 'Inter',sans-serif;background:var(--card);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px}
+.dtab{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.drh,.dr{display:grid;grid-template-columns:74px 196px 86px 86px 92px minmax(0,1fr);gap:8px;align-items:center;padding:5px 10px}
+.drh{font-size:12px;font-weight:700;color:var(--ink3);background:var(--soft);padding:8px 10px}
+.dtab.nt .drh,.dtab.nt .dr{grid-template-columns:74px 196px 92px minmax(0,1fr)}
+.dtab.nt .tcol{display:none}
+.dr{border-top:1px solid var(--line);font-size:14px;min-height:46px}
+.dr.off{background:color-mix(in srgb,var(--sO) 9%,transparent)}
+.dr.na{opacity:.45}
+.dr.ex{box-shadow:inset 3px 0 0 var(--ex,transparent)}
+.dd b{font:800 15px 'Inter',sans-serif}
+.dd span{font-size:12.5px;color:var(--ink3);margin-left:4px}
+.dd small{display:block;font-size:11px;color:var(--warn);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dst{display:flex;gap:3px}
+.dst button{width:36px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink3);font-size:13px;font-weight:700;padding:0}
+.dst button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.dst button.on{color:#fff;border-color:transparent}
+.dst button.on.P{background:var(--sP)} .dst button.on.A{background:var(--sA)} .dst button.on.L{background:var(--sL)}
+.dst button.on.U{background:var(--sU)} .dst button.on.H{background:var(--sH)} .dst button.on.O{background:var(--sO)}
+.ti{width:100%;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--bg);font:600 14px 'Inter',sans-serif;text-align:center;outline:none;color:var(--ink)}
+.ti::placeholder{color:var(--ink3);opacity:.55;font-weight:500}
+.ti:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-s);background:var(--card)}
+.ti:disabled{opacity:.35;background:transparent}
+.ti.bad{border-color:var(--neg);box-shadow:0 0 0 3px color-mix(in srgb,var(--neg) 18%,transparent)}
+.ti.set{border-color:color-mix(in srgb,var(--acc) 45%,var(--line));background:var(--card)}
+.dh{font:600 13px 'Inter',sans-serif;color:var(--ink2);white-space:nowrap}
+.dh em{display:block;font-style:normal;font-size:11.5px;color:var(--sA);font-family:'Hind Siliguri',sans-serif;font-weight:600}
+.tn{width:100%;padding:7px 9px;border-radius:9px;border:1px solid transparent;background:transparent;font-size:13px;outline:none;color:var(--ink)}
+.tn::placeholder{color:var(--ink3);opacity:.45}
+.tn:hover{border-color:var(--line)}
+.tn:focus{border-color:var(--acc);background:var(--card)}
+.efoot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.efoot .grow{flex:1}
+.pick{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:300px;color:var(--ink3);font-size:14.5px;gap:8px}
+.pick i{font-style:normal;font-size:40px}
+
+/* ---------- সেটিংস ---------- */
+.hols{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.hol{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:12px;background:var(--soft);font-size:14px}
+.hol b{font-family:'Inter',sans-serif;min-width:92px}
+.hol span{flex:1;min-width:0}
+.hol small{color:var(--ink3);font-size:12.5px;min-width:64px}
+.hol button{border:0;background:none;color:var(--ink3);font-size:15px;padding:2px 6px}
+.hol button:hover{color:var(--neg)}
+.row{display:flex;gap:8px;align-items:center;padding:9px 11px;border-radius:12px;background:var(--soft);margin-bottom:6px;font-size:14.5px}
+.row span{flex:1;min-width:0;overflow-wrap:anywhere}
+.row small{display:block;font-size:12px;color:var(--ink3)}
+.logl{font-size:13px;display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:420px;overflow:auto}
+.logl div{padding:7px 10px;border-radius:10px;background:var(--soft)}
+.logl small{color:var(--ink3);font-family:'Inter',sans-serif;font-size:11.5px}
+.addh{display:grid;grid-template-columns:1fr 1fr 1.6fr auto;gap:8px;align-items:end}
+
+@media(max-width:999px){
+  .stats{grid-template-columns:1fr 1fr}
+  .cols2{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .lhead{display:none}
+  .erow{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:11px 14px}
+  .erow .eid,.erow .tp,.erow .esch{display:none}
+  .erow .erate{text-align:right}
+  .erow .mob{display:inline}
+  .dr .tnw{display:none}
+  .g3{grid-template-columns:1fr 1fr}
+  .addr{grid-template-columns:1fr 1fr}
+  .addh{grid-template-columns:1fr 1fr}
+  .drh{display:none}
+  .dr,.dtab.nt .dr{grid-template-columns:62px minmax(0,1fr);row-gap:6px;padding:8px 10px}
+  .dr .dst{justify-content:flex-start;flex-wrap:wrap}
+  .dr .tcol,.dr .dh,.dr .tn{grid-column:auto}
+  .dr .tnw{grid-column:1 / -1}
+  .dr .tpair{grid-column:2;display:flex;gap:6px;align-items:center}
+  .dr .tpair .tcol{flex:1;min-width:0}
+  .dr .tcol:has(.ti:disabled){display:none}
+  .keys{display:none}
+  .sums{grid-template-columns:repeat(3,1fr);gap:6px}
+  .sum{padding:6px 8px}
+  .sum b{font-size:16px}
+  .ehead .who b{font-size:16.5px}
+  .dst button{width:40px;height:34px}
+  .brow{grid-template-columns:96px 1fr 36px}
+  .ph h2{font-size:20px}
+  .stat b{font-size:19px}
+  .mnav b{min-width:112px}
+}
+@media(min-width:761px){ .dr .tpair{display:contents} }
+@media print{ .side,.topbar,.bnav,.dev-foot{display:none!important} }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="mkg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
+    <stop offset="0" style="stop-color:var(--m1)"/><stop offset=".5" style="stop-color:var(--m2)"/><stop offset="1" style="stop-color:var(--m3)"/>
+  </linearGradient></defs></svg>
+
+<!-- ================= লগইন ================= -->
+<div id="login" hidden>
+  <form class="lg-card" id="lgForm" autocomplete="off" novalidate>
+    <img class="ic" src="icon-192.png" alt="">
+    <h1>Salary System</h1>
+    <div class="sub" id="lgOrg"></div>
+    <div id="lgStep1">
+      <label for="lgEmail">ইমেইল</label>
+      <input id="lgEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@gmail.com">
+    </div>
+    <div id="lgStep2" hidden>
+      <label for="lgCode">ইমেইলে আসা ৬ সংখ্যার কোড</label>
+      <input id="lgCode" class="code" inputmode="numeric" maxlength="6" placeholder="••••••">
+    </div>
+    <button class="lg-btn" id="lgBtn" type="submit">কোড পাঠান</button>
+    <div class="lg-msg" id="lgMsg"></div>
+    <button class="lg-link" id="lgBack" type="button" hidden>← অন্য ইমেইল</button>
+  </form>
+</div>
+
+<!-- ================= অ্যাপ ================= -->
+<div id="app" hidden>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><img src="icon-192.png" alt=""><div><b>Salary System</b><small class="orgTxt"></small></div></div>
+      <nav id="sideNav"></nav>
+      <div class="s-tools">
+        <div class="s-me" id="sideMe"></div>
+        <button data-a="theme">🌓 থিম বদলান</button>
+        <button data-a="lock">🔒 লক করুন</button>
+        <button data-a="logout">🚪 লগআউট</button>
+        <div class="s-foot"><script>document.write(markSvg());</script><span>Developed By: <b>Md. Ashraful Islam</b></span></div>
+      </div>
+    </aside>
+    <div class="mainw">
+      <header class="topbar"><div class="topbar-in">
+        <div class="brand"><img src="icon-192.png" alt=""><div><b>Salary System</b><small class="orgTxt"></small></div></div>
+        <button class="ib" id="menuBtn" title="মেনু" aria-label="মেনু">☰</button>
+      </div>
+        <div class="menu" id="menu" hidden>
+          <button data-a="theme">🌓 থিম বদলান</button>
+          <button data-a="lock">🔒 লক করুন</button>
+          <button data-a="logout">🚪 লগআউট</button>
+        </div>
+      </header>
+      <main id="view"></main>
+      <div class="dev-foot"><script>document.write(markSvg());</script>Developed By: <b>Md. Ashraful Islam</b></div>
+      <nav class="bnav" id="botNav"></nav>
+    </div>
+  </div>
+</div>
+
+<div id="ovHost"></div>
+
+<!-- ================= 🔒 PIN লক ================= -->
+<div id="alLock" role="dialog" aria-modal="true">
+<style>
+  html[data-al-open] #alLock { display: none !important; }
+  html:not([data-al-open]), html:not([data-al-open]) body { overflow: hidden !important; }
+  html:not([data-al-open]) body > *:not(#alLock):not(svg) { visibility: hidden !important; }
+  #alLock {
+    position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+    padding: 16px; overflow-y: auto; visibility: visible !important;
+    background: radial-gradient(circle at 18% 14%, #0f766e 0, transparent 45%),
+                radial-gradient(circle at 86% 90%, #1d4ed8 0, transparent 42%), #0b1626;
+    font-family: 'Hind Siliguri', 'Nirmala UI', system-ui, sans-serif; color: #14202f;
+  }
+  #alLock .al-card { width: 100%; max-width: 360px; background: #fff; border-radius: 24px; padding: 28px 22px 20px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45); text-align: center; margin: auto; }
+  #alLock .al-ic { width: 70px; height: 70px; border-radius: 20px; display: block; margin: 0 auto 12px; box-shadow: 0 10px 24px rgba(14,116,144,.3); }
+  #alLock .al-org { font: 800 21px 'Plus Jakarta Sans', 'Inter', sans-serif; margin: 0 0 2px; letter-spacing: -.02em; }
+  #alLock .al-app { font-size: 12.5px; font-weight: 700; color: #7a8aa0; margin: 0 0 18px; }
+  #alLock .al-sub { font-size: 13px; font-weight: 600; color: #5d6b80; line-height: 1.55; margin: -4px 0 14px; }
+  #alLock .al-sub:empty { display: none; }
+  #alLock .al-f { text-align: left; margin-bottom: 10px; }
+  #alLock .al-f label { display: block; font-size: 12.5px; font-weight: 800; color: #3c4a5c; margin: 0 0 5px; }
+  #alLock .al-in { display: block; width: 100%; padding: 12px 14px; border: 2px solid #dde5ee; border-radius: 12px;
+    font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 3px; color: #14202f; background: #fff;
+    -webkit-text-security: disc; outline: none; }
+  #alLock.al-show .al-in { -webkit-text-security: none; }
+  #alLock .al-in:focus { border-color: #0e7490; box-shadow: 0 0 0 3px rgba(14,116,144,.15); }
+  #alLock .al-btn { display: block; width: 100%; margin: 6px 0 0; padding: 13px; border: none; border-radius: 12px;
+    font-family: inherit; font-size: 15px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0f766e, #0e7490 55%, #1d4ed8);
+    box-shadow: 0 8px 20px rgba(14,116,144,.35); }
+  #alLock .al-btn:disabled { opacity: .6; cursor: wait; }
+  #alLock .al-err { min-height: 18px; margin: 10px 0 0; font-size: 13px; font-weight: 700; color: #c0392b; line-height: 1.5; }
+  #alLock .al-err.ok { color: #2d6a4f; }
+  #alLock .al-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
+  #alLock .al-link { background: none; border: none; padding: 4px 0; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #0e7490; }
+  #alLock .al-foot { margin-top: 14px; font-size: 11.5px; font-weight: 600; color: #94a0b3; }
+</style>
+<form class="al-card" id="alForm" autocomplete="off" novalidate>
+  <img class="al-ic" src="icon-192.png" alt="">
+  <div class="al-org" id="alOrg"></div>
+  <div class="al-app">Salary System</div>
+  <div class="al-sub" id="alSub"></div>
+  <div class="al-f" id="alFa"><label for="alA" id="alLa"></label><input class="al-in" id="alA" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <div class="al-f" id="alFb"><label for="alB" id="alLb"></label><input class="al-in" id="alB" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <div class="al-f" id="alFc"><label for="alC" id="alLc"></label><input class="al-in" id="alC" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <button class="al-btn" id="alBtn" type="submit"></button>
+  <div class="al-err" id="alErr"></div>
+  <div class="al-row">
+    <button class="al-link" id="alEye" type="button">👁 Show PIN</button>
+    <button class="al-link" id="alSwitch" type="button"></button>
+  </div>
+  <div class="al-foot">Authorized Holder: Md. Ashraful Islam</div>
+</form>
+<script>
+(function () {
+  var MODE = '', IDLE = 15 * 60000, MINLEN = 4, KEY = 'sal_appLockLast';
+  var root = document.documentElement, box = document.getElementById('alLock');
+  function $(id) { return document.getElementById(id); }
+  function bn(n) { return String(n).replace(/[0-9]/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }); }
+  var mode = '', locked = true, busy = false, mem = 0, lastWrite = 0, loginWait = false;
+  $('alOrg').textContent = ORG;
+
+  function readLast() { var v = 0; try { v = Number(localStorage.getItem(KEY)) || 0; } catch (e) {} return Math.max(v, mem); }
+  function writeLast(t) { mem = t; lastWrite = Date.now(); try { localStorage.setItem(KEY, String(t)); } catch (e) {} }
+  function stale() { return Date.now() - readLast() > IDLE; }
+
+  var TEXT = {
+    wait:   { sub: '⏳ একটু অপেক্ষা করুন...', a: 'Please Enter the Pin', btn: 'Enter', busy: '', sw: '' },
+    unlock: { sub: '', a: 'Please Enter the Pin', btn: 'Enter', busy: 'Logging IN...', sw: '🔑 PIN change?' },
+    setup:  { sub: 'নতুন PIN ঠিক করুন — এরপর থেকে Salary System খুলতে এই PIN লাগবে। অন্তত ' + bn(MINLEN) + ' অক্ষর।',
+              a: 'New PIN', b: 'Confirm PIN', btn: 'Set PIN', busy: '⏳ সেভ হচ্ছে...', sw: '' },
+    change: { sub: 'আগে বর্তমান PIN দিন, তারপর নতুন PIN।',
+              a: 'Current PIN', b: 'New PIN', c: 'Confirm new PIN', btn: 'Change PIN', busy: '⏳ যাচাই হচ্ছে...', sw: '← ফিরে যান' }
+  };
+  function setMode(m) {
+    mode = m; var t = TEXT[m];
+    $('alSub').textContent = t.sub; $('alBtn').textContent = t.btn; $('alBtn').disabled = m === 'wait';
+    $('alLa').textContent = t.a; $('alLb').textContent = t.b || ''; $('alLc').textContent = t.c || '';
+    $('alFb').style.display = t.b ? '' : 'none'; $('alFc').style.display = t.c ? '' : 'none';
+    $('alSwitch').textContent = t.sw; $('alSwitch').style.display = t.sw ? '' : 'none';
+    $('alA').value = $('alB').value = $('alC').value = ''; msg(''); focusA();
+  }
+  function focusA() { setTimeout(function () { try { $('alA').focus(); } catch (e) {} }, 30); }
+  function msg(s, ok) { var e = $('alErr'); e.textContent = s; e.className = 'al-err' + (ok ? ' ok' : ''); }
+
+  function lock() {
+    if (!AUTH) { waitForLogin(); return; }
+    locked = true; loginWait = false;
+    $('alOrg').textContent = ORG;
+    root.removeAttribute('data-al-open');
+    if (document.activeElement && !box.contains(document.activeElement)) { try { document.activeElement.blur(); } catch (e) {} }
+    if (MODE) { setMode(MODE); return; }
+    setMode('wait');
+    callServer('appLockMode', []).then(function (m) {
+      MODE = m === 'setup' ? 'setup' : 'unlock';
+      if (locked && mode === 'wait') setMode(MODE);
+    }, function (err) {
+      if (/AUTH_REQUIRED/.test(err.message)) { setAuth(''); window.showLogin && showLogin(); waitForLogin(); return; }
+      msg(err.message); $('alBtn').disabled = false; $('alBtn').textContent = '🔄 আবার চেষ্টা';
+    });
+  }
+  function unlock() {
+    locked = false; loginWait = false; writeLast(Date.now());
+    $('alA').value = $('alB').value = $('alC').value = '';
+    root.setAttribute('data-al-open', '');
+  }
+  function waitForLogin() { locked = false; loginWait = true; root.setAttribute('data-al-open', ''); }
+  window.appLockWaitLogin = waitForLogin;
+  window.appLockAfterLogin = function () { if (stale()) lock(); else unlock(); };
+  window.appLockNow = function () { writeLast(0); mem = 0; lock(); };
+
+  function check() { if (!locked && !loginWait && stale()) lock(); }
+  function activity() {
+    if (locked || loginWait) return;
+    if (stale()) { lock(); return; }
+    var n = Date.now(); mem = n;
+    if (n - lastWrite > 15000) writeLast(n);
+  }
+  function run(fn, args, ok) {
+    var btn = $('alBtn'), label = btn.textContent;
+    busy = true; btn.disabled = true; btn.textContent = TEXT[mode].busy; msg('');
+    var done = function () { busy = false; btn.disabled = false; btn.textContent = label; };
+    callServer(fn, args).then(function () { done(); ok(); }, function (err) {
+      done();
+      if (/AUTH_REQUIRED/.test(err.message)) { setAuth(''); window.showLogin && showLogin(); waitForLogin(); return; }
+      msg(String(err.message).replace(/^(Exception|Error):\s*/, ''));
+      try { $('alA').select(); } catch (e) {}
+    });
+  }
+  $('alForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (busy) return;
+    if (mode === 'wait') { lock(); return; }
+    var a = $('alA').value.trim(), b = $('alB').value.trim(), c = $('alC').value.trim();
+    if (mode === 'unlock') {
+      if (!a) { msg('PIN লিখুন।'); focusA(); return; }
+      run('appLockUnlock', [a], unlock);
+    } else if (mode === 'setup') {
+      if (a.length < MINLEN) { msg('PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); focusA(); return; }
+      if (a !== b) { msg('দুইবার একই PIN লিখুন।'); $('alB').focus(); return; }
+      run('appLockSetup', [a], function () { MODE = 'unlock'; unlock(); });
+    } else {
+      if (!a) { msg('বর্তমান PIN লিখুন।'); focusA(); return; }
+      if (b.length < MINLEN) { msg('নতুন PIN অন্তত ' + bn(MINLEN) + ' অক্ষরের দিন।'); $('alB').focus(); return; }
+      if (b !== c) { msg('নতুন PIN দুইবার একই লিখুন।'); $('alC').focus(); return; }
+      run('appLockChange', [a, b], function () { msg('✅ PIN বদলানো হয়েছে।', true); setTimeout(unlock, 900); });
+    }
+  });
+  $('alSwitch').addEventListener('click', function () { if (!busy) setMode(mode === 'change' ? 'unlock' : 'change'); });
+  $('alEye').addEventListener('click', function () {
+    var on = box.classList.toggle('al-show');
+    this.textContent = on ? '🙈 Hide PIN' : '👁 Show PIN'; focusA();
+  });
+  ['keydown', 'keypress', 'keyup'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (locked && !box.contains(e.target)) { e.stopImmediatePropagation(); e.preventDefault(); if (t === 'keydown') focusA(); }
+    }, true);
+  });
+  ['pointerdown', 'mousemove', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (t) {
+    document.addEventListener(t, activity, { capture: true, passive: true });
+  });
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  window.addEventListener('pagehide', function () { if (!locked && mem) writeLast(mem); });
+  setInterval(check, 15000);
+
+  if (!AUTH) waitForLogin();
+  else if (!stale()) unlock();
+  else lock();
+})();
+</script>
+</div>
+
+<script>
+/* ═════════════════════════ অ্যাপ ═════════════════════════ */
+var $ = function (id) { return document.getElementById(id); };
+
+var BN_M = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+var BN_W = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
+var TYPES = { fixed: 'নির্দিষ্ট মাসিক', hourly: 'ঘণ্টাভিত্তিক', part: 'খণ্ডকালীন', contract: 'চুক্তিভিত্তিক' };
+var BASES = { month: 'মাসিক বেতন', day: 'দিন ধরে', hour: 'ঘণ্টা ধরে', piece: 'কাজ ধরে', flat: 'নির্দিষ্ট টাকা' };
+var RATE_LBL = { month: 'মাসিক বেতন', day: 'দৈনিক রেট', hour: 'ঘণ্টার রেট', piece: 'প্রতি কাজের রেট', flat: 'মাসিক নির্দিষ্ট টাকা' };
+var BASIS_HELP = {
+  month: 'মাসিক বেতন থেকে বিনা ছুটিতে অনুপস্থিত দিন (মাস = ৩০ দিন ধরে) কাটা যাবে।',
+  day: 'যত দিন উপস্থিত × দৈনিক রেট। মঞ্জুর ছুটির দিনও গোনা হবে।',
+  hour: 'খাতার আসা-যাওয়ার সময় থেকে মোট ঘণ্টা × ঘণ্টার রেট — প্রতিদিনের সময় তুলতে হবে।',
+  piece: 'মাসে যত কাজ/পিস × প্রতি কাজের রেট — মাস শেষে কাজের পরিমাণ তুলতে হবে।',
+  flat: 'হাজিরা ছাড়াই মাসে ঠিক করা টাকা (যেমন চুক্তির মাসিক টাকা)।'
+};
+var TYPE_BASIS = { fixed: 'month', hourly: 'hour', part: 'month', contract: 'flat' };
+var PAYS = { cash: 'নগদ টাকা', bkash: 'বিকাশ', nagad: 'নগদ (অ্যাপ)', bank: 'ব্যাংক' };
+var ST = {
+  P: { l: 'উপস্থিত', s: 'উ', k: 'p' }, A: { l: 'অনুপস্থিত', s: 'অ', k: 'a' }, L: { l: 'মঞ্জুর ছুটি', s: 'ছু', k: 'l' },
+  U: { l: 'বিনা বেতনে ছুটি', s: 'বি', k: 'u' }, H: { l: 'অর্ধদিবস', s: '½', k: 'h' }, O: { l: 'ছুটির দিন', s: '—', k: 'o' }
+};
+var KEY_ST = { p: 'P', a: 'A', l: 'L', u: 'U', h: 'H', o: 'O' };
+
+var S = {
+  me: null, set: {}, emps: [], rates: {}, hol: [], holMap: {}, today: '',
+  page: 'dash', month: '', att: null, attFor: '', attLoading: false, attErr: '',
+  ef: { q: '', dept: '', type: '', st: 'active' },
+  af: { q: '', dept: '', st: 'all' }, sel: null,
+  cur: null, timeOn: null, holYear: 0, booted: false, bootErr: ''
+};
+
+/* ---------- ছোট সাহায্য ---------- */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function n0(v) { return (Number(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+function tk(v) { return '৳' + n0(v); }
+function pad(n) { return ('0' + n).slice(-2); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function toast(m, ms) {
+  document.querySelectorAll('.toast').forEach(function (x) { x.remove(); });   // একটার উপর আরেকটা নয়
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = m;
+  document.body.appendChild(t); setTimeout(function () { t.remove(); }, ms || 2800);
+}
+function bnDigits(s) { return String(s).replace(/[০-৯]/g, function (d) { return '০১২৩৪৫৬৭৮৯'.indexOf(d); }); }
+function localYmd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function todayStr() { return S.today || localYmd(new Date()); }
+function addMonth(m, k) { var p = m.split('-'), d = new Date(+p[0], +p[1] - 1 + k, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+function monthLabel(m) { var p = m.split('-'); return BN_M[+p[1] - 1] + ' ' + p[0]; }
+function mdays(m) { var p = m.split('-'); return new Date(Date.UTC(+p[0], +p[1], 0)).getUTCDate(); }
+function wday(m, d) { var p = m.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, d)).getUTCDay(); }
+function dateLabel(s) { if (!s) return ''; var p = s.split('-'); return +p[2] + ' ' + BN_M[+p[1] - 1] + ' ' + p[0]; }
+function tmin(t) { var m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '')); return m ? +m[1] * 60 + +m[2] : null; }
+function span(i, o) { var a = tmin(i), b = tmin(o); if (a == null || b == null) return 0; return b > a ? b - a : b + 1440 - a; }
+function hm(min) { min = Math.round(min || 0); var h = Math.floor(min / 60), m = min % 60; return h + (m ? ':' + pad(m) : '') + ' ঘ'; }
+function offTxt(off) { return off && off.length ? off.map(function (d) { return BN_W[d]; }).join(', ') : 'নেই'; }
+
+/* "০৯১৫", "915", "9.15", "9:15", "5:30 pm" — সব বুঝে HH:mm; am/pm না দিলে নির্ধারিত সময়ের
+ * সবচেয়ে কাছেরটা ধরে (খাতায় "৫:৩০" লেখা যাওয়ার সময় = বিকাল ৫:৩০) */
+function parseTime(v, ref) {
+  var s = bnDigits(String(v || '')).trim().toLowerCase().replace(/\s+/g, '');
+  if (!s) return '';
+  var ap = /(am|pm|a|p)$/.exec(s); if (ap) s = s.slice(0, -ap[0].length);
+  var h, m;
+  var mm = /^(\d{1,2})[:.,;](\d{1,2})$/.exec(s);
+  if (mm) { h = +mm[1]; m = +mm[2]; if (mm[2].length === 1) m *= 10; }
+  else if (/^\d{1,4}$/.test(s)) {
+    if (s.length <= 2) { h = +s; m = 0; }
+    else if (s.length === 3) { h = +s[0]; m = +s.slice(1); }
+    else { h = +s.slice(0, 2); m = +s.slice(2); }
+  } else return null;
+  if (m > 59 || h > 24) return null;
+  if (h === 24) h = 0;
+  if (ap) {
+    if (h > 12) return null;
+    if (ap[0][0] === 'p' && h < 12) h += 12;
+    if (ap[0][0] === 'a' && h === 12) h = 0;
+  } else if (h <= 12 && ref != null) {
+    var c1 = (h % 12) * 60 + m, c2 = c1 + 720;
+    var d1 = Math.min(Math.abs(c1 - ref), 1440 - Math.abs(c1 - ref)), d2 = Math.min(Math.abs(c2 - ref), 1440 - Math.abs(c2 - ref));
+    h = Math.floor((d2 < d1 ? c2 : c1) / 60);
+  }
+  return pad(h) + ':' + pad(m);
+}
+
+function empById(id) { for (var i = 0; i < S.emps.length; i++) if (S.emps[i].id === id) return S.emps[i]; return null; }
+function curRate(id, on) {
+  var list = S.rates[id] || [], d = on || todayStr(), r = null;
+  list.forEach(function (x) { if (x.from <= d) r = x; });
+  return r || list[0] || null;
+}
+function inMonth(e, m) {
+  var a = m + '-01', b = m + '-' + pad(mdays(m));
+  if (e.join && e.join > b) return false;
+  if (e.leave && e.leave < a) return false;
+  return e.active || !!e.leave;
+}
+function depts() {
+  var seen = {}, out = [];
+  (S.set.depts || []).concat(S.emps.map(function (e) { return e.dept; })).forEach(function (d) {
+    if (d && !seen[d.toLowerCase()]) { seen[d.toLowerCase()] = 1; out.push(d); }
+  });
+  return out.sort(function (a, b) { return a.localeCompare(b, 'bn'); });
+}
+function setHolMap() { S.holMap = {}; S.hol.forEach(function (h) { S.holMap[h.date] = h.name; }); }
+
+/* মাসের সারাংশ — সার্ভারের attSum_ (Data ফাইল)-এর হুবহু একই হিসাব */
+function attSum(e, month, days) {
+  var n = mdays(month), off = e.off || [], grace = Number(S.set.lateGrace) || 0;
+  var out = { work: 0, P: 0, A: 0, L: 0, U: 0, H: 0, OW: 0, late: 0, lateMin: 0, min: 0 };
+  var sched = Math.max(0, span(e.tin, e.tout) - (e.brk || 0));
+  for (var d = 1; d <= n; d++) {
+    var date = month + '-' + pad(d);
+    if ((e.join && date < e.join) || (e.leave && date > e.leave)) continue;
+    var isOff = off.indexOf(wday(month, d)) !== -1 || !!S.holMap[date];
+    var x = days[d] || {};
+    var s = x.s || (isOff ? 'O' : 'P');
+    if (!isOff) out.work++;
+    if (s === 'O' || (isOff && s !== 'P' && s !== 'H')) continue;
+    out[s]++;
+    if (s !== 'P' && s !== 'H') continue;
+    if (isOff) out.OW++;
+    var m = dayMin(e, x, s, sched);
+    out.min += m;
+    var lt = dayLate(e, x, isOff, grace);
+    if (lt) { out.late++; out.lateMin += lt; }
+  }
+  out.hours = Math.round(out.min / 6) / 10;
+  return out;
+}
+function dayMin(e, x, s, sched) {
+  var i = x.i || e.tin, o = x.o || e.tout;
+  var m = x.i || x.o ? Math.max(0, span(i, o) - (span(i, o) > 300 ? e.brk || 0 : 0)) : sched;
+  if (s === 'H' && !x.i && !x.o) m = Math.round(sched / 2);
+  return m;
+}
+function dayLate(e, x, isOff, grace) {
+  if (isOff || !x.i || !e.tin) return 0;
+  var late = tmin(x.i) - tmin(e.tin);
+  return late > grace && late < 720 ? late : 0;
+}
+
+/* ---------- শুরু / লোড ---------- */
+function applyBoot(d) {
+  S.me = d.me; S.set = d.set || {}; S.emps = d.emps || []; S.rates = d.rates || {}; S.hol = d.hol || []; S.today = d.today || '';
+  ORG = S.set.org || ORG;
+  setHolMap();
+  if (!S.month) S.month = defaultMonth();
+  S.booted = true;
+}
+function defaultMonth() {
+  var t = todayStr(), m = t.slice(0, 7);
+  return +t.slice(8, 10) <= 10 ? addMonth(m, -1) : m;   // মাসের শুরুতে আগের মাসের খাতা তোলা হয়
+}
+function saveBootCache() {
+  try {
+    localStorage.setItem(BOOT_KEY, JSON.stringify({ key: AUTH.slice(-16), data: { me: S.me, set: S.set, emps: S.emps, rates: S.rates, hol: S.hol, today: S.today } }));
+  } catch (e) {}
+}
+function boot() {
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem(BOOT_KEY) || 'null'); } catch (e) {}
+  if (cached && cached.key === AUTH.slice(-16) && cached.data) { applyBoot(cached.data); route(); }
+  else render();
+  callServer('apiBoot', []).then(function (d) {
+    applyBoot(d); saveBootCache(); S.bootErr = '';
+    if (!S.cur || !S.cur.dirty) route(); else renderShell();
+  }, function (err) {
+    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); return; }
+    S.bootErr = err.message; render();
+  });
+}
+function ensureAtt(month, force) {
+  if (!force && S.attFor === month && S.att) return Promise.resolve(S.att);
+  if (S.attLoading === month && S._attP) return S._attP;
+  S.attLoading = month; S.attErr = '';
+  S._attP = callServer('apiAttMonth', [month]).then(function (d) {
+    if (S.month === month) { S.att = d; S.attFor = month; }
+    S.attLoading = false; return d;
+  }, function (err) {
+    S.attLoading = false;
+    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); throw err; }
+    S.attErr = err.message; render(); throw err;
+  });
+  return S._attP;
+}
+
+/* ---------- পাতা বদল (#dash, #emp, #att, #att/1001, #set) ---------- */
+var PAGES = [['dash', '📊', 'সারাংশ'], ['emp', '👥', 'কর্মচারী'], ['att', '🗓️', 'হাজিরা'], ['set', '⚙️', 'সেটিংস']];
+function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
+window.addEventListener('hashchange', route);
+function route() {
+  var h = location.hash.replace(/^#/, '').split('/');
+  var page = PAGES.some(function (p) { return p[0] === h[0]; }) ? h[0] : 'dash';
+  var id = page === 'att' && h[1] ? decodeURIComponent(h[1]) : '';
+  if (S.cur && (S.cur.id !== id || page !== 'att')) {
+    var c = S.cur;
+    flushSave().then(function () { if (S.cur === c) S.cur = null; route(); }, function () {
+      if (confirm('শেষ বদলগুলো সেভ হয়নি। তবু অন্য পাতায় যাবেন? (না চাপলে এখানেই থাকবেন)')) { S.cur = null; route(); }
+      else history.replaceState(null, '', '#att/' + encodeURIComponent(c.id));
+    });
+    return;
+  }
+  S.page = page;
+  if (page === 'att' || page === 'dash') {
+    if (S.attFor !== S.month || !S.att) {
+      render();
+      if (S.booted) ensureAtt(S.month).then(function () { route(); }, function () {});
+      return;
+    }
+    if (id && !S.cur) {
+      var e = empById(id);
+      if (e) S.cur = makeCur(e);
+    }
+  }
+  render();
+}
+
+function renderShell() {
+  document.querySelectorAll('.orgTxt').forEach(function (x) { x.textContent = S.set.org || ORG; });
+  $('sideMe').textContent = S.me ? S.me.email : '';
+  var nav = PAGES.map(function (p) {
+    return '<button data-go="#' + p[0] + '" class="' + (S.page === p[0] ? 'on' : '') + '"><i>' + p[1] + '</i>' + p[2] + '</button>';
+  }).join('');
+  $('sideNav').innerHTML = nav;
+  $('botNav').innerHTML = nav;
+}
+function render() {
+  renderShell();
+  var v = $('view');
+  if (!S.booted) {
+    v.innerHTML = S.bootErr ? '<div class="err">' + esc(S.bootErr) + ' <button class="btn sm" data-a="reboot">আবার চেষ্টা</button></div>'
+      : '<div class="card"><div class="sk"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:50%"></div></div>';
+    return;
+  }
+  if (S.page === 'emp') v.innerHTML = empPage();
+  else if (S.page === 'att') { v.innerHTML = attPage(); afterAtt(); }
+  else if (S.page === 'set') { v.innerHTML = setPage(); }
+  else v.innerHTML = dashPage();
+}
+
+/* ═════════ সারাংশ ═════════ */
+function dashPage() {
+  var act = S.emps.filter(function (e) { return e.active; });
+  var inM = S.emps.filter(function (e) { return inMonth(e, S.month); });
+  var rows = (S.attFor === S.month && S.att) ? S.att.rows : null;
+  var done = rows ? inM.filter(function (e) { return rows[e.id] && rows[e.id].done; }).length : 0;
+  var holN = S.hol.filter(function (h) { return h.date.slice(0, 7) === S.month; }).length;
+  var byType = {}; act.forEach(function (e) { byType[e.type] = (byType[e.type] || 0) + 1; });
+  var byDept = {}; act.forEach(function (e) { var d = e.dept || 'বিভাগ ছাড়া'; byDept[d] = (byDept[d] || 0) + 1; });
+  var maxT = Math.max.apply(null, [1].concat(Object.keys(byType).map(function (k) { return byType[k]; })));
+  var dk = Object.keys(byDept).sort(function (a, b) { return byDept[b] - byDept[a]; });
+  var maxD = dk.length ? byDept[dk[0]] : 1;
+  var p = inM.length ? Math.round(done / inM.length * 100) : 0;
+  var hi = new Date().getHours();
+  var greet = hi < 12 ? 'শুভ সকাল' : hi < 17 ? 'শুভ দুপুর' : 'শুভ সন্ধ্যা';
+  return '<div class="ph"><div><h2>' + greet + ' 👋</h2><p>' + esc(S.set.org) + ' · আজ ' + dateLabel(todayStr()) + '</p></div>' +
+    '<div class="acts"><button class="btn" data-a="emp-new">＋ নতুন কর্মচারী</button><button class="btn pri" data-go="#att">🗓️ হাজিরা তুলুন</button></div></div>' +
+    '<div class="stats">' +
+      '<div class="stat"><i>👥</i><div><small>সক্রিয় কর্মচারী</small><b class="num">' + act.length + '</b></div></div>' +
+      '<div class="stat"><i>🗓️</i><div><small>' + monthLabel(S.month) + '-এর হাজিরা শেষ</small><b class="num">' + (rows ? done : '…') + ' <em>/ ' + inM.length + '</em></b></div></div>' +
+      '<div class="stat"><i>🏢</i><div><small>বিভাগ</small><b class="num">' + dk.filter(function (d) { return d !== 'বিভাগ ছাড়া'; }).length + '</b></div></div>' +
+      '<div class="stat"><i>🎉</i><div><small>' + BN_M[+S.month.slice(5) - 1] + '-এর ছুটির দিন</small><b class="num">' + holN + '</b></div></div>' +
+    '</div>' +
+    '<div class="card"><h3>' + monthLabel(S.month) + ' — হাজিরা তোলা <span class="chip acc">' + p + '%</span></h3>' +
+      '<div class="bar" style="margin-top:10px"><i style="width:' + p + '%"></i></div>' +
+      '<p class="hint" style="margin-top:8px">' + (inM.length ? (inM.length - done) + ' জনের হাজিরা তোলা বাকি। মাসের প্রথম ১০ দিন আগের মাসের হিসাব দেখায় — হাজিরার পাতায় মাস বদলানো যায়।' : 'এখনো কোনো কর্মচারী যোগ করা হয়নি।') + '</p></div>' +
+    '<div class="cols2">' +
+      '<div class="card"><h3>ধরন অনুযায়ী</h3>' + (act.length ? Object.keys(TYPES).map(function (k) {
+        var n = byType[k] || 0;
+        return '<div class="brow"><span>' + TYPES[k] + '</span><div class="bar"><i style="width:' + Math.round(n / maxT * 100) + '%"></i></div><b class="num">' + n + '</b></div>';
+      }).join('') : '<p class="hint" style="margin-top:8px">কর্মচারী যোগ করলে এখানে দেখাবে।</p>') + '</div>' +
+      '<div class="card"><h3>বিভাগ অনুযায়ী</h3>' + (dk.length ? dk.slice(0, 8).map(function (d) {
+        return '<div class="brow"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(d) + '</span><div class="bar"><i style="width:' + Math.round(byDept[d] / maxD * 100) + '%"></i></div><b class="num">' + byDept[d] + '</b></div>';
+      }).join('') : '<p class="hint" style="margin-top:8px">কর্মচারী যোগ করলে এখানে দেখাবে।</p>') + '</div>' +
+    '</div>' +
+    '<div class="card" style="margin-top:14px"><h3>তৈরির ধাপ</h3><div class="steps">' +
+      '<div class="now"><i>🟢</i><span><b>ধাপ ১ — এখন চলছে</b><small>কর্মচারী, বেতন/রেটের ইতিহাস, খাতা থেকে হাজিরা তোলা, ছুটির দিন</small></span></div>' +
+      '<div><i>⚪</i><span><b>ধাপ ২ — বেতন ইঞ্জিন</b><small>সব ধরনের হিসাব, যাচাই, অনুমোদন (মাস তালাবদ্ধ)</small></span></div>' +
+      '<div><i>⚪</i><span><b>ধাপ ৩ — অগ্রিম ও বেতন-রসিদ</b><small>অগ্রিম/সমন্বয়, প্রত্যেকের রসিদ, মাসের বেতন শিট</small></span></div>' +
+      '<div><i>⚪</i><span><b>ধাপ ৪ — অনুমতি ও কর্মচারীর পাতা</b><small>কে কী করবেন, কর্মচারী আইডি + পিন দিয়ে নিজের হিসাব, রিপোর্ট</small></span></div>' +
+    '</div></div>';
+}
+
+/* ═════════ কর্মচারী ═════════ */
+function empFiltered() {
+  var f = S.ef, q = f.q.trim().toLowerCase();
+  return S.emps.filter(function (e) {
+    if (f.st === 'active' && !e.active) return false;
+    if (f.st === 'left' && e.active) return false;
+    if (f.dept && e.dept !== f.dept) return false;
+    if (f.type && e.type !== f.type) return false;
+    if (q && (e.name + ' ' + e.id + ' ' + e.phone + ' ' + e.desig).toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  }).sort(function (a, b) {
+    var x = /^\d+$/.test(a.id) && /^\d+$/.test(b.id) ? +a.id - +b.id : a.id.localeCompare(b.id);
+    return x;
+  });
+}
+function empPage() {
+  var list = empFiltered();
+  var nAct = S.emps.filter(function (e) { return e.active; }).length;
+  return '<div class="ph"><div><h2>কর্মচারী</h2><p>মোট ' + S.emps.length + ' জন · সক্রিয় ' + nAct + ' জন</p></div>' +
+    '<div class="acts"><button class="btn" data-a="import">⬆ এক্সেল থেকে যোগ</button><button class="btn pri" data-a="emp-new">＋ নতুন কর্মচারী</button></div></div>' +
+    '<div class="tools">' +
+      '<input class="in" id="efQ" placeholder="🔍 নাম, আইডি বা ফোন" value="' + esc(S.ef.q) + '">' +
+      '<select class="sel" id="efDept"><option value="">সব বিভাগ</option>' + depts().map(function (d) { return '<option' + (S.ef.dept === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+      '<select class="sel" id="efType"><option value="">সব ধরন</option>' + Object.keys(TYPES).map(function (k) { return '<option value="' + k + '"' + (S.ef.type === k ? ' selected' : '') + '>' + TYPES[k] + '</option>'; }).join('') + '</select>' +
+      '<div class="seg" id="efSt">' + [['active', 'সক্রিয়'], ['left', 'বাদ পড়া'], ['all', 'সব']].map(function (o) {
+        return '<button data-v="' + o[0] + '" class="' + (S.ef.st === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+    '</div>' +
+    '<div class="list" id="empList">' + empRows(list) + '</div>';
+}
+function empRows(list) {
+  if (!S.emps.length) return '<div class="empty">এখনো কোনো কর্মচারী নেই।<br>＋ নতুন কর্মচারী, অথবা ⬆ এক্সেল থেকে একসাথে সবাইকে যোগ করুন।</div>';
+  if (!list.length) return '<div class="empty">এই খোঁজে কাউকে পাওয়া যায়নি।</div>';
+  return '<div class="lhead"><span>আইডি</span><span>নাম</span><span>ধরন</span><span>বেতন / রেট</span><span>সময়সূচি</span></div>' +
+    list.map(function (e) {
+      var r = curRate(e.id);
+      return '<div class="erow' + (e.active ? '' : ' off') + '" data-a="emp-open" data-id="' + esc(e.id) + '">' +
+        '<span class="eid">' + esc(e.id) + '</span>' +
+        '<span><b>' + esc(e.name) + '</b><small>' + esc([e.desig, e.dept].filter(Boolean).join(' · ') || '—') + '<span class="mob"> · ' + esc(e.id) + '</span>' + (e.active ? '' : ' · বাদ ' + dateLabel(e.leave)) + '</small></span>' +
+        '<span class="tp ' + e.type + '">' + TYPES[e.type] + '</span>' +
+        '<span class="erate"><b class="num">' + (r ? tk(r.amount) : '—') + '</b><small>' + RATE_LBL[e.basis] + (r && r.allow ? ' + ভাতা ' + tk(r.allow) : '') + '</small></span>' +
+        '<span class="esch num">' + (e.basis === 'flat' ? '—' : esc(e.tin + '–' + e.tout)) + '<small>ছুটি: ' + offTxt(e.off) + '</small></span>' +
+      '</div>';
+    }).join('') + '<div class="lfoot">' + list.length + ' জন দেখানো হচ্ছে</div>';
+}
+function refreshEmpList() { if ($('empList')) $('empList').innerHTML = empRows(empFiltered()); }
+
+/* ---------- কর্মচারীর ফর্ম (ড্রয়ার) ---------- */
+var F = null;   // { isNew, e, rate }
+function blankEmp() {
+  return { id: '', name: '', desig: '', dept: '', type: 'fixed', basis: 'month', phone: '', join: '', leave: '', active: true,
+    tin: S.set.defIn || '09:00', tout: S.set.defOut || '17:00', brk: S.set.defBrk || 0, off: (S.set.defOff || [5]).slice(),
+    late: false, ot: false, otMode: 'x', otVal: 1.5, pay: 'cash', acct: '', view: false, note: '' };
+}
+function openEmp(id) {
+  var e = id ? empById(id) : null;
+  F = { isNew: !e, e: e ? clone(e) : blankEmp(), rate: { amount: '', allow: '' }, nr: null };
+  openSheet(e ? esc(e.name) : 'নতুন কর্মচারী', '<div id="empForm"></div>', { drawer: true });
+  drawEmpForm();
+}
+function segH(name, opts, val) {
+  return '<div class="seg" data-fseg="' + name + '">' + opts.map(function (o) {
+    return '<button type="button" data-v="' + o[0] + '" class="' + (String(val) === String(o[0]) ? 'on' : '') + '">' + o[1] + '</button>';
+  }).join('') + '</div>';
+}
+function drawEmpForm() {
+  var e = F.e, box = $('empForm'); if (!box) return;
+  var rates = F.isNew ? [] : (S.rates[e.id] || []), cr = F.isNew ? null : curRate(e.id);
+  var dl = '<datalist id="deptList">' + depts().map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>';
+  box.innerHTML =
+    '<div class="sh-sec">পরিচয়</div>' +
+    '<div class="g2"><div><label class="fl">আইডি ' + (F.isNew ? '<em>(ফাঁকা রাখলে নিজে থেকে)</em>' : '<em>(বদলানো যায় না)</em>') + '</label>' +
+      '<input class="in num" id="f_id" maxlength="12" value="' + esc(e.id) + '"' + (F.isNew ? ' placeholder="যেমন: 1001"' : ' disabled') + '></div>' +
+      '<div><label class="fl">নাম *</label><input class="in" id="f_name" maxlength="60" value="' + esc(e.name) + '"></div></div>' +
+    '<div class="g2"><div><label class="fl">পদ</label><input class="in" id="f_desig" maxlength="40" value="' + esc(e.desig) + '"></div>' +
+      '<div><label class="fl">বিভাগ</label><input class="in" id="f_dept" maxlength="40" list="deptList" value="' + esc(e.dept) + '">' + dl + '</div></div>' +
+    '<div class="g2"><div><label class="fl">ফোন</label><input class="in num" id="f_phone" inputmode="tel" maxlength="20" value="' + esc(e.phone) + '"></div>' +
+      '<div><label class="fl">যোগদানের তারিখ <em>(জানা না থাকলে ফাঁকা)</em></label><input class="in" id="f_join" type="date" value="' + esc(e.join) + '"></div></div>' +
+
+    '<div class="sh-sec">বেতন</div>' +
+    '<label class="fl">কর্মচারীর ধরন</label>' + segH('type', Object.keys(TYPES).map(function (k) { return [k, TYPES[k]]; }), e.type) +
+    '<label class="fl">হিসাবের ভিত্তি</label>' + segH('basis', Object.keys(BASES).map(function (k) { return [k, BASES[k]]; }), e.basis) +
+    '<p class="hint" style="margin-top:6px">' + BASIS_HELP[e.basis] + '</p>' +
+    (F.isNew
+      ? '<div class="g2"><div><label class="fl">' + RATE_LBL[e.basis] + ' (৳) *</label><input class="in num" id="f_amount" inputmode="decimal" value="' + esc(F.rate.amount) + '"></div>' +
+        '<div><label class="fl">ভাতা (৳) <em>মাসিক, ঐচ্ছিক</em></label><input class="in num" id="f_allow" inputmode="decimal" value="' + esc(F.rate.allow) + '"></div></div>'
+      : '<label class="fl">বেতন / রেটের ইতিহাস <em>— নতুন হার কোন তারিখ থেকে কার্যকর তা দিন; মাসের মাঝে বদলালে দুই ভাগে হিসাব হবে</em></label>' +
+        '<div class="rates">' + rates.slice().reverse().map(function (r) {
+          return '<div class="rate' + (cr && r.rid === cr.rid ? ' cur' : '') + '"><span><b class="num">' + tk(r.amount) + '</b>' + (r.allow ? ' <span class="chip">+ ভাতা ' + tk(r.allow) + '</span>' : '') +
+            (cr && r.rid === cr.rid ? ' <span class="chip acc">এখন চালু</span>' : r.from > todayStr() ? ' <span class="chip warn">সামনে চালু হবে</span>' : '') +
+            '<small>' + (r.from <= '2000-01-01' ? 'শুরু থেকে' : dateLabel(r.from) + ' থেকে') + (r.note ? ' · ' + esc(r.note) : '') + '</small></span>' +
+            (rates.length > 1 ? '<button class="x" type="button" data-a="rate-del" data-rid="' + esc(r.rid) + '" title="মুছুন">✕</button>' : '') + '</div>';
+        }).join('') + '</div>' +
+        '<div class="addr"><div><label class="fl">কার্যকর তারিখ</label><input class="in" id="nr_from" type="date" value="' + todayStr().slice(0, 8) + '01"></div>' +
+          '<div><label class="fl">নতুন ' + RATE_LBL[e.basis] + '</label><input class="in num" id="nr_amount" inputmode="decimal"></div>' +
+          '<div><label class="fl">ভাতা</label><input class="in num" id="nr_allow" inputmode="decimal" placeholder="০"></div>' +
+          '<button class="btn" type="button" data-a="rate-add">＋ যোগ</button></div>' +
+        '<input class="in" id="nr_note" maxlength="100" placeholder="কারণ (ঐচ্ছিক) — যেমন বার্ষিক বৃদ্ধি" style="margin-top:8px">') +
+
+    '<div class="sh-sec">সময়সূচি' + (e.basis === 'flat' ? ' <em style="font-weight:500;color:var(--ink3)">(নির্দিষ্ট টাকায় হাজিরা লাগে না — তবু রাখা যায়)</em>' : '') + '</div>' +
+    '<div class="g3"><div><label class="fl">আসার সময়</label><input class="in num" id="f_tin" type="time" value="' + esc(e.tin) + '"></div>' +
+      '<div><label class="fl">যাওয়ার সময়</label><input class="in num" id="f_tout" type="time" value="' + esc(e.tout) + '"></div>' +
+      '<div><label class="fl">বিরতি (মিনিট)</label><input class="in num" id="f_brk" inputmode="numeric" value="' + esc(e.brk) + '"></div></div>' +
+    '<p class="hint" style="margin-top:6px">দৈনিক কর্মঘণ্টা: <b class="num">' + hm(Math.max(0, span(e.tin, e.tout) - (Number(e.brk) || 0))) + '</b></p>' +
+    '<label class="fl">সাপ্তাহিক ছুটি</label><div class="days7" id="f_off">' + BN_W.map(function (w, i) {
+      return '<button type="button" data-d="' + i + '" class="' + (e.off.indexOf(i) !== -1 ? 'on' : '') + '">' + w + '</button>'; }).join('') + '</div>' +
+
+    '<div class="sh-sec">নিয়ম</div>' +
+    '<div class="swrow"><span>দেরিতে আসলে কাটা<small>চালু থাকলে খাতার আসার সময় তুলতে হবে; নিয়ম সেটিংসে</small></span><button type="button" class="sw' + (e.late ? ' on' : '') + '" data-fsw="late"></button></div>' +
+    '<div class="swrow"><span>ওভারটাইম<small>নির্ধারিত সময়ের বেশি কাজের জন্য বাড়তি টাকা</small></span><button type="button" class="sw' + (e.ot ? ' on' : '') + '" data-fsw="ot"></button></div>' +
+    (e.ot ? '<div class="g2"><div><label class="fl">ওভারটাইমের হার</label>' + segH('otMode', [['x', 'ঘণ্টার হারের গুণ'], ['tk', 'ঘণ্টায় নির্দিষ্ট টাকা']], e.otMode) + '</div>' +
+      '<div><label class="fl">' + (e.otMode === 'x' ? 'কত গুণ (যেমন ১.৫)' : 'ঘণ্টায় কত টাকা') + '</label><input class="in num" id="f_otVal" inputmode="decimal" value="' + esc(e.otVal) + '"></div></div>' : '') +
+
+    '<div class="sh-sec">বেতন দেওয়া</div>' +
+    segH('pay', Object.keys(PAYS).map(function (k) { return [k, PAYS[k]]; }), e.pay) +
+    (e.pay !== 'cash' ? '<label class="fl">' + (e.pay === 'bank' ? 'ব্যাংক ও হিসাব নম্বর' : PAYS[e.pay] + ' নম্বর') + '</label><input class="in num" id="f_acct" maxlength="40" value="' + esc(e.acct) + '">' : '') +
+
+    '<div class="sh-sec">অন্যান্য</div>' +
+    '<div class="swrow"><span>নিজের হিসাব দেখার অনুমতি<small>কর্মচারী আইডি + পিন দিয়ে নিজের হাজিরা ও বেতন-রসিদ দেখা (ধাপ ৪-এ চালু হবে)</small></span><button type="button" class="sw' + (e.view ? ' on' : '') + '" data-fsw="view"></button></div>' +
+    '<label class="fl">মন্তব্য</label><input class="in" id="f_note" maxlength="200" value="' + esc(e.note) + '">' +
+    (F.isNew ? '' :
+      '<div class="sh-sec">অবস্থা</div>' + segH('active', [['1', '✅ সক্রিয়'], ['0', '⛔ বাদ দেওয়া হয়েছে']], e.active ? '1' : '0') +
+      (!e.active ? '<label class="fl">বাদের তারিখ <em>(এর পরের দিনগুলোর হাজিরা লাগবে না)</em></label><input class="in" id="f_leave" type="date" value="' + esc(e.leave || todayStr()) + '">' : '')) +
+
+    '<div class="sh-f">' + (F.isNew ? '' : '<button class="btn red" type="button" data-a="emp-del">🗑 মুছুন</button>') +
+      '<span class="grow"></span><button class="btn" type="button" data-a="close">বাতিল</button>' +
+      '<button class="btn pri" type="button" data-a="emp-save" id="empSaveBtn">✓ সেভ করুন</button></div>';
+}
+// ফর্মের লেখা F.e-তে তুলে রাখা (আবার আঁকার আগে)
+function readEmpForm() {
+  var e = F.e, v = function (id) { var x = $(id); return x ? x.value : undefined; };
+  if (F.isNew && v('f_id') !== undefined) e.id = v('f_id').trim().toUpperCase();
+  ['name', 'desig', 'dept', 'phone', 'join', 'tin', 'tout', 'note', 'acct', 'leave'].forEach(function (k) { var x = v('f_' + k); if (x !== undefined) e[k] = x.trim(); });
+  if (v('f_brk') !== undefined) e.brk = bnDigits(v('f_brk')).trim();
+  if (v('f_otVal') !== undefined) e.otVal = bnDigits(v('f_otVal')).trim();
+  if (F.isNew) { F.rate.amount = bnDigits(v('f_amount') || '').replace(/[,৳\s]/g, ''); F.rate.allow = bnDigits(v('f_allow') || '').replace(/[,৳\s]/g, ''); }
+}
+function saveEmp() {
+  readEmpForm();
+  var e = F.e;
+  if (!e.name) { toast('নাম লিখুন।'); $('f_name').focus(); return; }
+  if (F.isNew && F.rate.amount === '') { toast(RATE_LBL[e.basis] + ' লিখুন।'); $('f_amount').focus(); return; }
+  if (!e.active && !e.leave) e.leave = todayStr();
+  var btn = $('empSaveBtn'), wasNew = F.isNew; btn.disabled = true; btn.textContent = '⏳ সেভ হচ্ছে…';
+  callServer('apiSaveEmployee', [e, F.isNew, F.isNew ? F.rate : null]).then(function (r) {
+    var i = S.emps.findIndex(function (x) { return x.id === r.emp.id; });
+    if (i === -1) S.emps.push(r.emp); else S.emps[i] = r.emp;
+    S.rates[r.emp.id] = r.rates;
+    saveBootCache(); closeOv();
+    toast('✓ ' + r.emp.name + ' — সেভ হয়েছে' + (wasNew ? ' (আইডি ' + r.emp.id + ')' : ''));
+    F = null; render();
+  }, function (err) { btn.disabled = false; btn.textContent = '✓ সেভ করুন'; toast(err.message, 4500); });
+}
+
+/* ---------- এক্সেল থেকে একসাথে ---------- */
+var IMP_COLS = [
+  ['name', 'নাম'], ['desig', 'পদ'], ['dept', 'বিভাগ'], ['phone', 'ফোন'], ['type', 'ধরন'], ['basis', 'হিসাবের ভিত্তি'],
+  ['amount', 'বেতন/রেট'], ['allow', 'ভাতা'], ['join', 'যোগদান'], ['tin', 'আসা'], ['tout', 'যাওয়া'], ['off', 'সাপ্তাহিক ছুটি'], ['id', 'আইডি']
+];
+var IMP_ALIAS = {
+  id: ['আইডি', 'id', 'কোড', 'code', 'আইডিনম্বর', 'empid'], name: ['নাম', 'name', 'কর্মচারীরনাম'], desig: ['পদ', 'পদবি', 'designation', 'post'],
+  dept: ['বিভাগ', 'শাখা', 'department', 'dept', 'section'], phone: ['ফোন', 'মোবাইল', 'phone', 'mobile', 'ফোননম্বর'],
+  type: ['ধরন', 'type', 'কর্মচারীরধরন'], basis: ['হিসাবেরভিত্তি', 'ভিত্তি', 'basis'],
+  amount: ['বেতন/রেট', 'বেতন', 'রেট', 'হার', 'salary', 'rate', 'amount', 'বেতনবারেট'], allow: ['ভাতা', 'allowance'],
+  join: ['যোগদান', 'যোগদানেরতারিখ', 'join', 'joining', 'joiningdate'], tin: ['আসা', 'আসারসময়', 'in', 'intime'],
+  tout: ['যাওয়া', 'যাওয়ারসময়', 'out', 'outtime'], off: ['সাপ্তাহিকছুটি', 'ছুটি', 'ছুটিরদিন', 'off', 'weeklyoff', 'dayoff'],
+  pay: ['পরিশোধ', 'পেমেন্ট', 'payment'], acct: ['হিসাবনম্বর', 'অ্যাকাউন্ট', 'account']
+};
+var IMP = { rows: [], errs: 0 };
+function openImport() {
+  openSheet('⬆ এক্সেল থেকে কর্মচারী যোগ', '<p class="hint">এক্সেল বা গুগল শিটে কর্মচারীদের তালিকা থেকে সারিগুলো (প্রথমে কলামের নামের সারিসহ) কপি করে নিচে পেস্ট করুন। কলামের নাম বাংলা বা ইংরেজি — যেকোনো ক্রমে চলবে।</p>' +
+    '<p class="hint" style="margin-top:6px">কলাম: <b>' + IMP_COLS.map(function (c) { return c[1]; }).join(' · ') + '</b> — শুধু "নাম" আর "বেতন/রেট" লাগবেই; বাকিগুলো ফাঁকা থাকলে সেটিংসের সাধারণ সময়সূচি বসবে। ধরন: মাসিক / ঘণ্টা / খণ্ডকালীন / চুক্তি। সাপ্তাহিক ছুটি: শুক্র, শনি…</p>' +
+    '<div style="display:flex;gap:8px;margin:10px 0"><button class="btn sm" data-a="imp-tpl">📋 কলামের নামগুলো কপি করুন</button></div>' +
+    '<textarea class="in" id="impTxt" placeholder="এখানে পেস্ট করুন (Ctrl+V)"></textarea>' +
+    '<div id="impPrev"></div>' +
+    '<div class="sh-f"><span class="grow"></span><button class="btn" data-a="close">বাতিল</button><button class="btn pri" id="impBtn" data-a="imp-save" disabled>যোগ করুন</button></div>', { wide: true });
+  $('impTxt').addEventListener('input', impParse);
+}
+function normH(s) { return String(s || '').toLowerCase().replace(/[\s_.:()*-]/g, ''); }
+function impParse() {
+  var txt = $('impTxt').value.replace(/\r/g, '');
+  var lines = txt.split('\n').filter(function (l) { return l.trim(); });
+  IMP.rows = []; IMP.errs = 0;
+  if (!lines.length) { $('impPrev').innerHTML = ''; $('impBtn').disabled = true; return; }
+  var cells = lines.map(function (l) { return l.split('\t'); });
+  var head = cells[0].map(normH), map = {}, hit = 0;
+  head.forEach(function (h, i) {
+    Object.keys(IMP_ALIAS).forEach(function (k) { if (map[k] == null && IMP_ALIAS[k].map(normH).indexOf(h) !== -1) { map[k] = i; hit++; } });
+  });
+  if (hit >= 2) cells.shift(); else { map = {}; IMP_COLS.forEach(function (c, i) { map[c[0]] = i; }); }
+  var seen = {};
+  S.emps.forEach(function (e) { seen[e.id] = 'আগেই আছে'; });
+  IMP.rows = cells.map(function (c) {
+    var g = function (k) { return map[k] == null ? '' : String(c[map[k]] || '').trim(); };
+    var r = { name: g('name'), desig: g('desig'), dept: g('dept'), phone: bnDigits(g('phone')), id: bnDigits(g('id')).toUpperCase() };
+    var errs = [];
+    r.type = impType(g('type'));
+    r.basis = impBasis(g('basis') || g('type'), r.type);   // ধরনের ঘরে "কাজ ধরে" লিখলেও বোঝে
+    r.amount = bnDigits(g('amount')).replace(/[,৳\s]|tk|টাকা/gi, '');
+    r.allow = bnDigits(g('allow')).replace(/[,৳\s]|tk|টাকা/gi, '');
+    r.join = impDate(g('join')); if (r.join === null) { errs.push('যোগদানের তারিখ বোঝা যায়নি'); r.join = ''; }
+    r.tin = g('tin') ? parseTime(g('tin'), 9 * 60) : (S.set.defIn || '09:00');
+    r.tout = g('tout') ? parseTime(g('tout'), 17 * 60) : (S.set.defOut || '17:00');
+    if (!r.tin) { errs.push('আসার সময় বোঝা যায়নি'); r.tin = ''; }
+    if (!r.tout) { errs.push('যাওয়ার সময় বোঝা যায়নি'); r.tout = ''; }
+    r.brk = S.set.defBrk || 0;
+    r.off = map.off != null && g('off') !== '' ? impOff(g('off')) : (S.set.defOff || [5]).slice();
+    if (r.off === null) { errs.push('সাপ্তাহিক ছুটি বোঝা যায়নি'); r.off = []; }
+    var pay = g('pay').toLowerCase(); r.pay = /বিকাশ|bkash/.test(pay) ? 'bkash' : /নগদ\s*\(|nagad|অ্যাপ/.test(pay) ? 'nagad' : /ব্যাংক|bank/.test(pay) ? 'bank' : 'cash';
+    r.acct = bnDigits(g('acct'));
+    if (!r.name) errs.push('নাম নেই');
+    if (r.amount === '' || !isFinite(Number(r.amount))) errs.push('বেতন/রেট নেই');
+    if (r.id) {
+      if (!/^[A-Z0-9-]{1,12}$/.test(r.id)) errs.push('আইডি ঠিক নেই');
+      else if (seen[r.id]) errs.push('আইডি ' + r.id + ' ' + seen[r.id]);
+      else seen[r.id] = 'দুইবার আছে';
+    }
+    r._e = errs.join(', ');
+    if (r._e) IMP.errs++;
+    return r;
+  });
+  var n = IMP.rows.length;
+  $('impPrev').innerHTML = '<p class="hint" style="margin:12px 0 0">' + n + ' জন পাওয়া গেছে' + (IMP.errs ? ' — <b style="color:var(--neg)">' + IMP.errs + 'টা সারিতে ভুল আছে</b>; ঠিক করে আবার পেস্ট করুন।' : ' — সব ঠিক আছে ✓') + '</p>' +
+    '<div class="pwrap"><table class="ptab"><tr><th>#</th><th>আইডি</th><th>নাম</th><th>পদ · বিভাগ</th><th>ধরন / ভিত্তি</th><th>হার</th><th>সময়</th><th>ছুটি</th><th>সমস্যা</th></tr>' +
+    IMP.rows.map(function (r, i) {
+      return '<tr class="' + (r._e ? 'bad' : '') + '"><td class="num">' + (i + 1) + '</td><td class="num">' + esc(r.id || 'নিজে থেকে') + '</td><td>' + esc(r.name) + '</td><td>' + esc([r.desig, r.dept].filter(Boolean).join(' · ')) + '</td>' +
+        '<td>' + TYPES[r.type] + '<br><small>' + BASES[r.basis] + '</small></td><td class="num">' + esc(r.amount) + (r.allow ? ' + ' + esc(r.allow) : '') + '</td>' +
+        '<td class="num">' + esc(r.tin) + '–' + esc(r.tout) + '</td><td>' + offTxt(r.off) + '</td><td class="e">' + esc(r._e) + '</td></tr>';
+    }).join('') + '</table></div>';
+  $('impBtn').disabled = !n || IMP.errs > 0;
+  $('impBtn').textContent = n ? n + ' জন যোগ করুন' : 'যোগ করুন';
+}
+function impType(v) {
+  v = String(v || '').toLowerCase();
+  if (/ঘণ্টা|ঘন্টা|hour/.test(v)) return 'hourly';
+  if (/খণ্ড|খন্ড|part/.test(v)) return 'part';
+  if (/চুক্তি|contract/.test(v)) return 'contract';
+  return 'fixed';
+}
+function impBasis(v, type) {
+  v = String(v || '').toLowerCase();
+  if (/টাকা|flat|fixed/.test(v)) return 'flat';
+  if (/দিন|দৈনিক|day|daily/.test(v)) return 'day';
+  if (/ঘণ্টা|ঘন্টা|hour/.test(v)) return 'hour';
+  if (/কাজ|পিস|piece/.test(v)) return 'piece';
+  if (/মাস|month/.test(v)) return 'month';
+  return TYPE_BASIS[type];
+}
+function impOff(v) {
+  v = String(v || '').toLowerCase();
+  if (/নেই|none|no|^-$/.test(v)) return [];
+  var names = [['রবি', 'sun'], ['সোম', 'mon'], ['মঙ্গল', 'tue'], ['বুধ', 'wed'], ['বৃহ', 'thu'], ['শুক্র', 'fri'], ['শনি', 'sat']];
+  var out = [];
+  v.split(/[,/;+&\s]+|এবং|ও/).forEach(function (p) {
+    p = p.trim(); if (!p) return;
+    names.forEach(function (n, i) { if ((p.indexOf(n[0]) === 0 || p.indexOf(n[1]) === 0) && out.indexOf(i) === -1) out.push(i); });
+  });
+  return out.length ? out.sort() : null;
+}
+function impDate(v) {
+  v = bnDigits(String(v || '')).trim();
+  if (!v) return '';
+  var m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(v);
+  var y, mo, d;
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if ((m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/.exec(v))) { d = +m[1]; mo = +m[2]; y = +m[3]; if (y < 100) y += 2000; }
+  else if ((m = /^(\d{1,2})[-\s]([a-z]{3})[a-z]*[-\s,]+(\d{2,4})$/i.exec(v))) {
+    d = +m[1]; mo = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(m[2].toLowerCase()) + 1; y = +m[3]; if (y < 100) y += 2000;
+  } else return null;
+  var dt = new Date(Date.UTC(y, mo - 1, d));
+  if (!mo || dt.getUTCMonth() !== mo - 1 || y < 1990) return null;
+  return y + '-' + pad(mo) + '-' + pad(d);
+}
+function saveImport() {
+  if (!IMP.rows.length || IMP.errs) return;
+  var btn = $('impBtn'); btn.disabled = true; btn.textContent = '⏳ যোগ হচ্ছে…';
+  var list = IMP.rows.map(function (r) { var o = clone(r); delete o._e; return o; });
+  callServer('apiImportEmployees', [list]).then(function (r) {
+    if (r.errors && r.errors.length) {
+      btn.disabled = false; btn.textContent = 'যোগ করুন';
+      $('impPrev').insertAdjacentHTML('afterbegin', '<div class="err">কিছুই যোগ হয়নি — ' + r.errors.slice(0, 8).map(function (x) { return 'সারি ' + (x.i + 1) + ': ' + esc(x.msg); }).join('<br>') + '</div>');
+      return;
+    }
+    S.emps = S.emps.concat(r.emps); S.rates = r.rates;
+    saveBootCache(); closeOv(); toast('✓ ' + r.saved + ' জন কর্মচারী যোগ হয়েছে'); render();
+  }, function (err) { btn.disabled = false; btn.textContent = 'যোগ করুন'; toast(err.message, 4500); });
+}
+
+/* ═════════ হাজিরা ═════════ */
+function attEmps() {
+  var f = S.af, q = f.q.trim().toLowerCase(), rows = S.att ? S.att.rows : {};
+  return S.emps.filter(function (e) {
+    if (!inMonth(e, S.month)) return false;
+    if (f.dept && e.dept !== f.dept) return false;
+    var r = rows[e.id];
+    if (f.st === 'pending' && r && r.done) return false;
+    if (f.st === 'done' && !(r && r.done)) return false;
+    if (q && (e.name + ' ' + e.id + ' ' + e.phone).toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  }).sort(function (a, b) {
+    var x = (a.dept || '').localeCompare(b.dept || '', 'bn');
+    if (x) return x;
+    return /^\d+$/.test(a.id) && /^\d+$/.test(b.id) ? +a.id - +b.id : a.id.localeCompare(b.id);
+  });
+}
+function attPage() {
+  var loading = S.attFor !== S.month || !S.att;
+  var all = S.emps.filter(function (e) { return inMonth(e, S.month); });
+  var rows = loading ? {} : S.att.rows;
+  var done = all.filter(function (e) { return rows[e.id] && rows[e.id].done; }).length;
+  var p = all.length ? Math.round(done / all.length * 100) : 0;
+  var head = '<div class="ph"><div><h2>হাজিরা তোলা</h2><p>খাতা থেকে — সব কর্মদিবস আগে থেকেই "উপস্থিত, নির্ধারিত সময়ে" ধরা আছে; শুধু ব্যতিক্রম বদলান।</p></div></div>' +
+    '<div class="mbar" style="margin-bottom:14px"><div class="mnav"><button data-a="m-prev" title="আগের মাস">◀</button><b>' + monthLabel(S.month) + '</b><button data-a="m-next" title="পরের মাস">▶</button></div>' +
+    '<div class="prog"><small><span>শেষ <b class="num">' + done + '</b> / ' + all.length + ' জন</span><span class="num">' + p + '%</span></small><div class="bar"><i style="width:' + p + '%"></i></div></div></div>';
+  if (S.attErr && loading) return head + '<div class="err">' + esc(S.attErr) + ' <button class="btn sm" data-a="att-reload">আবার চেষ্টা</button></div>';
+  if (loading) return head + '<div class="card"><div class="sk"></div><div class="sk"></div><div class="sk" style="width:60%"></div></div>';
+  if (!all.length) return head + '<div class="card empty">' + monthLabel(S.month) + '-এ কোনো কর্মচারী নেই। আগে কর্মচারী যোগ করুন।<br><br><button class="btn pri" data-go="#emp">👥 কর্মচারী</button></div>';
+  return head + '<div class="att-split">' +
+    '<div class="alist-wrap' + (S.cur ? ' hide-d" hidden data-hm="1' : '') + '">' + attListHtml() + '</div>' +
+    '<div class="entry-wrap' + (S.cur ? '' : ' hide-d" hidden data-hm="1') + '" id="entryWrap">' + (S.cur ? entryHtml() : '<div class="card pick"><i>🗓️</i>বাম দিকের তালিকা থেকে একজনকে বেছে নিন।<br>শেষ করলে "শেষ — পরের জন" চাপলে নিজে থেকে পরের জন খুলবে।</div>') + '</div>' +
+  '</div>';
+}
+function attListHtml() {
+  var list = attEmps(), rows = S.att.rows, sel = S.sel;
+  var bulk = sel ? '<div class="bulk"><b>' + Object.keys(sel).length + ' জন বাছা হয়েছে</b>' +
+    '<button class="btn sm" data-a="sel-all">সব বাছুন</button>' +
+    '<button class="btn sm pri" data-a="sel-done">✓ ব্যতিক্রম নেই — শেষ</button>' +
+    '<button class="btn sm" data-a="sel-undone">↺ খুলুন</button>' +
+    '<button class="btn sm" data-a="sel-off">✕</button></div>' : '';
+  return '<div class="tools">' +
+      '<input class="in" id="afQ" placeholder="🔍 নাম বা আইডি" value="' + esc(S.af.q) + '">' +
+      '<select class="sel" id="afDept"><option value="">সব বিভাগ</option>' + depts().map(function (d) { return '<option' + (S.af.dept === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+      '<div class="seg" id="afSt">' + [['all', 'সব'], ['pending', 'বাকি'], ['done', 'শেষ']].map(function (o) {
+        return '<button data-v="' + o[0] + '" class="' + (S.af.st === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+      (sel ? '' : '<button class="btn sm" data-a="sel-on" title="অনেকজন একসাথে শেষ চিহ্নিত করুন">☑ নির্বাচন</button>') +
+    '</div>' + bulk +
+    '<div class="list" id="attList">' + (list.length ? list.map(function (e) {
+      var r = rows[e.id], b = !r ? '<span class="badge no">তোলা হয়নি</span>' : r.done ? '<span class="badge ok">শেষ ✓</span>' : '<span class="badge go">চলছে</span>';
+      var sm = r ? attSum(e, S.month, r.days || {}) : null, ch = [];
+      if (sm) { if (sm.A) ch.push('অনু ' + sm.A); if (sm.L) ch.push('ছুটি ' + sm.L); if (sm.U) ch.push('বিনা ' + sm.U); if (sm.late) ch.push('দেরি ' + sm.late); }
+      return '<div class="arow' + (S.cur && S.cur.id === e.id ? ' on' : '') + '" data-a="' + (sel ? 'sel-tog' : 'att-open') + '" data-id="' + esc(e.id) + '">' +
+        (sel ? '<input type="checkbox" tabindex="-1"' + (sel[e.id] ? ' checked' : '') + '>' : '') +
+        '<span class="anm"><b>' + esc(e.name) + '</b><small>' + esc(e.id) + (e.dept ? ' · ' + esc(e.dept) : '') + (ch.length ? ' · ' + ch.join(' · ') : '') + '</small></span>' + b + '</div>';
+    }).join('') : '<div class="empty">এই খোঁজে কাউকে পাওয়া যায়নি।</div>') + '</div>';
+}
+function refreshAttList() {
+  var w = document.querySelector('.alist-wrap'); if (!w) return;
+  var y = $('attList') ? $('attList').scrollTop : 0;
+  w.innerHTML = attListHtml(); bindAttList();
+  if ($('attList')) $('attList').scrollTop = y;
+}
+
+/* ---------- একজনের মাস ---------- */
+function makeCur(e) {
+  var r = S.att && S.att.rows[e.id];
+  return { id: e.id, month: S.month, days: r ? clone(r.days || {}) : {}, qty: r ? r.qty : 0, note: r ? r.note : '',
+    done: r ? r.done : false, baseAt: r ? r.at : 0, savedAt: r ? r.at : 0, by: r ? r.by : '',
+    dirty: false, saving: false, err: '', t: 0, p: null };
+}
+function timeOn(e) { return S.timeOn != null ? S.timeOn : (e.basis === 'hour' || e.late || e.ot); }
+function entryHtml() {
+  var c = S.cur, e = empById(c.id); if (!e) return '<div class="card empty">কর্মচারী পাওয়া যায়নি।</div>';
+  var r = curRate(e.id, c.month + '-01'), list = attEmps(), i = list.findIndex(function (x) { return x.id === e.id; });
+  var tOn = timeOn(e), n = mdays(c.month);
+  var rowsH = '';
+  for (var d = 1; d <= n; d++) rowsH += '<div class="dr" data-d="' + d + '">' + dayRowInner(e, d) + '</div>';
+  return '<div class="card">' +
+    '<div class="ehead"><button class="ib" data-a="ent-back" title="তালিকায় ফিরুন">←</button>' +
+      '<div class="who"><b>' + esc(e.name) + '</b><small>' + esc(e.id) + (e.desig ? ' · ' + esc(e.desig) : '') + (e.dept ? ' · ' + esc(e.dept) : '') + ' · ' + monthLabel(c.month) + '</small></div>' +
+      '<button class="ib" data-a="ent-prev" title="আগের জন"' + (i <= 0 ? ' disabled' : '') + '>◀</button>' +
+      '<button class="ib" data-a="ent-next" title="পরের জন"' + (i === -1 || i >= list.length - 1 ? ' disabled' : '') + '>▶</button></div>' +
+    '<div class="einfo"><span class="tp ' + e.type + '">' + TYPES[e.type] + '</span><span class="chip">' + BASES[e.basis] + (r ? ' · <b>' + tk(r.amount) + '</b>' : '') + '</span>' +
+      '<span class="chip num">⏰ ' + esc(e.tin) + '–' + esc(e.tout) + (e.brk ? ' · বিরতি ' + e.brk + ' মি' : '') + '</span><span class="chip">ছুটি: ' + offTxt(e.off) + '</span>' +
+      (e.late ? '<span class="chip warn">দেরি-কাটা চালু</span>' : '') + (e.ot ? '<span class="chip acc">ওভারটাইম চালু</span>' : '') +
+      ' <button class="btn sm" data-a="emp-open" data-id="' + esc(e.id) + '" style="margin-left:auto">✏️ কর্মচারীর তথ্য</button></div>' +
+    '<div class="sums" id="sums">' + sumsHtml(e) + '</div>' +
+    (e.basis === 'piece' ? '<div class="g2" style="margin-top:4px"><div><label class="fl">এ মাসে কাজের পরিমাণ (পিস/কাজ) *</label><input class="in num" id="e_qty" inputmode="decimal" value="' + esc(c.qty || '') + '"></div></div>' : '') +
+    (e.basis === 'flat' ? '<p class="hint" style="margin-top:10px">ℹ️ নির্দিষ্ট টাকার কর্মচারী — বেতনে হাজিরা লাগে না। তবু রেকর্ডের জন্য তোলা যায়, অথবা সরাসরি "শেষ" করে দিন।</p>' : '') +
+    '<div class="etools"><button class="btn sm" data-a="t-tog">⏱ ' + (tOn ? 'সময়ের ঘর লুকান' : 'আসা-যাওয়ার সময় তুলুন') + '</button>' +
+      '<button class="btn sm" data-a="ent-reset" title="সব ব্যতিক্রম মুছে পুরো মাস নির্ধারিত সময়ে">↺ সব আগের মতো</button><span class="grow"></span>' +
+      '<span class="save-st" id="saveSt"></span></div>' +
+    (tOn ? '<div class="keys">আসার ঘরে <kbd>A</kbd> অনুপস্থিত · <kbd>L</kbd> মঞ্জুর ছুটি · <kbd>U</kbd> বিনা বেতনে · <kbd>H</kbd> অর্ধদিবস · <kbd>P</kbd> উপস্থিত — ' +
+      '<kbd>0915</kbd> লিখলেই ৯:১৫ · <kbd>Enter</kbd> পরের ঘর · <kbd>↑</kbd><kbd>↓</kbd> উপরে-নিচে · ফাঁকা ঘর = নির্ধারিত সময়</div>'
+      : '<div class="keys">অবস্থার বোতাম: <b>উ</b> উপস্থিত · <b>অ</b> অনুপস্থিত · <b>ছু</b> মঞ্জুর ছুটি (বেতনসহ) · <b>বি</b> বিনা বেতনে ছুটি · <b>½</b> অর্ধদিবস · <b>—</b> ছুটির দিন</div>') +
+    '<div class="dtab' + (tOn ? '' : ' nt') + '" id="dtab"><div class="drh"><span>তারিখ</span><span>অবস্থা</span><span class="tcol">আসা</span><span class="tcol">যাওয়া</span><span>ঘণ্টা</span><span>মন্তব্য</span></div>' + rowsH + '</div>' +
+    '<label class="fl">মাসের মন্তব্য</label><input class="in" id="e_note" maxlength="200" value="' + esc(c.note) + '" placeholder="ঐচ্ছিক">' +
+    '<div class="efoot"><span class="save-st" id="saveSt2"></span><span class="grow"></span>' +
+      (c.done ? '<button class="btn" data-a="ent-undone">↺ আবার খুলুন</button><button class="btn pri" data-a="ent-next2">পরের জন →</button>'
+        : '<button class="btn pri" data-a="ent-done">✓ তোলা শেষ — পরের জন →</button>') + '</div>' +
+  '</div>';
+}
+function dayInfo(e, d) {
+  var c = S.cur, date = c.month + '-' + pad(d), w = wday(c.month, d);
+  var na = (e.join && date < e.join) ? 'যোগদানের আগে' : (e.leave && date > e.leave) ? 'বাদের পরে' : '';
+  var hol = S.holMap[date] || '', isOff = (e.off || []).indexOf(w) !== -1 || !!hol;
+  var x = c.days[d] || {}, s = x.s || (isOff ? 'O' : 'P');
+  if (isOff && s !== 'O' && s !== 'P' && s !== 'H') s = 'O';
+  return { date: date, w: w, na: na, hol: hol, isOff: isOff, x: x, s: s };
+}
+function dayRowInner(e, d) {
+  var c = S.cur, k = dayInfo(e, d), tOn = timeOn(e);
+  var row = '<div class="dd"><b>' + d + '</b><span>' + BN_W[k.w] + '</span>' + (k.na ? '<small>' + k.na + '</small>' : k.hol ? '<small title="' + esc(k.hol) + '">' + esc(k.hol) + '</small>' : '') + '</div>';
+  if (k.na) return row + '<div class="dst"></div><div class="tpair"></div><div class="tnw"></div>';
+  var opts = k.isOff ? ['O', 'P', 'H'] : ['P', 'A', 'L', 'U', 'H'];
+  row += '<div class="dst">' + opts.map(function (s) {
+    return '<button type="button" class="' + s + (k.s === s ? ' on' : '') + '" data-st="' + s + '" title="' + ST[s].l + '">' + ST[s].s + '</button>';
+  }).join('') + '</div>';
+  var work = k.s === 'P' || k.s === 'H';
+  var sched = Math.max(0, span(e.tin, e.tout) - (e.brk || 0));
+  var mins = work ? dayMin(e, k.x, k.s, sched) : 0, late = work ? dayLate(e, k.x, k.isOff, Number(S.set.lateGrace) || 0) : 0;
+  var early = work && k.x.o && !k.isOff && tmin(k.x.o) != null ? (span(e.tin, e.tout) - span(e.tin, k.x.o)) : 0;
+  var hrs = work ? '<div class="dh">' + hm(mins) + (late ? '<em>দেরি ' + late + ' মি</em>' : early > 0 && early < 720 ? '<em>আগে গেছে ' + early + ' মি</em>' : '') + '</div>'
+    : '<div class="dh" style="color:var(--s' + k.s + ')">' + ST[k.s].l + '</div>';
+  row += '<div class="tpair">' +
+    (tOn ? '<span class="tcol"><input class="ti' + (k.x.i ? ' set' : '') + '" data-f="i" inputmode="numeric" autocomplete="off" maxlength="8" value="' + esc(k.x.i || '') + '" placeholder="' + (work ? esc(e.tin) : '') + '"' + (work ? '' : ' disabled') + '></span>' +
+      '<span class="tcol"><input class="ti' + (k.x.o ? ' set' : '') + '" data-f="o" inputmode="numeric" autocomplete="off" maxlength="8" value="' + esc(k.x.o || '') + '" placeholder="' + (work ? esc(e.tout) : '') + '"' + (work ? '' : ' disabled') + '></span>' : '') +
+    hrs + '</div>';
+  row += '<div class="tnw"><input class="tn" data-f="n" maxlength="60" value="' + esc(k.x.n || '') + '" placeholder="মন্তব্য"></div>';
+  return row;
+}
+function sumsHtml(e) {
+  var s = attSum(e, S.cur.month, S.cur.days);
+  var it = [['', 'কর্মদিবস', s.work], ['p', 'উপস্থিত', s.P], ['a', 'অনুপস্থিত', s.A], ['l', 'মঞ্জুর ছুটি', s.L], ['u', 'বিনা বেতনে', s.U], ['h', 'অর্ধদিবস', s.H]];
+  if (s.OW) it.push(['p', 'ছুটির দিনে কাজ', s.OW]);
+  it.push(['a', 'দেরি', s.late + (s.lateMin ? '<em style="font-size:12px;font-weight:600;color:var(--ink3)"> (' + s.lateMin + ' মি)</em>' : '')]);
+  it.push(['', 'মোট ঘণ্টা', s.hours]);
+  return it.map(function (x) { return '<div class="sum ' + x[0] + '"><small>' + x[1] + '</small><b class="num">' + x[2] + '</b></div>'; }).join('');
+}
+function updRow(d) {
+  var e = empById(S.cur.id), el = document.querySelector('.dr[data-d="' + d + '"]');
+  if (!e || !el) return;
+  el.innerHTML = dayRowInner(e, d);
+  $('sums').innerHTML = sumsHtml(e);
+}
+function setSaveTxt() {
+  var c = S.cur; if (!c) return;
+  var t = c.err ? '⚠️ সেভ হয়নি — ' + c.err : c.saving ? '⏳ সেভ হচ্ছে…' : c.dirty ? '● সেভ বাকি' :
+    c.savedAt ? '✓ সেভ হয়েছে · ' + new Date(c.savedAt).toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit' }) + (c.done ? ' · তোলা শেষ' : '') : 'এখনো কিছু বদলানো হয়নি';
+  ['saveSt', 'saveSt2'].forEach(function (id) { var x = $(id); if (x) { x.textContent = t; x.className = 'save-st' + (c.err ? ' bad' : ''); } });
+}
+function markDirty() {
+  var c = S.cur; c.dirty = true; c.err = ''; setSaveTxt();
+  clearTimeout(c.t); c.t = setTimeout(function () { doSave().catch(function () {}); }, 1200);
+}
+function doSave(done) {
+  var c = S.cur; if (!c) return Promise.resolve();
+  clearTimeout(c.t);
+  if (c.saving) return c.p.then(function () { return S.cur === c ? doSave(done) : null; });
+  if (!c.dirty && done === undefined) return Promise.resolve();
+  var want = done === undefined ? c.done : done;
+  c.saving = true; c.dirty = false; setSaveTxt();
+  var payload = { days: clone(c.days), qty: c.qty, note: c.note };
+  c.p = callServer('apiSaveAtt', [c.month, c.id, payload, want, c.baseAt]).then(function (r) {
+    c.saving = false; c.baseAt = r.at; c.savedAt = r.at; c.done = r.done; c.err = '';
+    if (S.attFor === c.month && S.att) S.att.rows[c.id] = r;
+    if (S.cur === c) { setSaveTxt(); refreshAttList(); }
+    if (c.dirty && S.cur === c) return doSave();
+  }, function (err) {
+    c.saving = false; c.dirty = true;
+    if (/AUTH_REQUIRED/.test(err.message)) { logoutLocal(); throw err; }
+    c.err = err.message.replace(/^CONFLICT:\s*/, '');
+    if (S.cur === c) setSaveTxt();
+    if (/^CONFLICT/.test(err.message)) toast(c.err, 6000);
+    throw err;
+  });
+  return c.p;
+}
+function flushSave() {
+  var c = S.cur;
+  if (c && (c.dirty || c.saving)) return doSave();
+  return Promise.resolve();
+}
+function setStatus(d, s) {
+  var e = empById(S.cur.id), k = dayInfo(e, d);
+  if (k.na) return;
+  var x = S.cur.days[d] || {};
+  var def = k.isOff ? 'O' : 'P';
+  if (s === def) delete x.s; else x.s = s;
+  if (s !== 'P' && s !== 'H') { delete x.i; delete x.o; }
+  if (Object.keys(x).length) S.cur.days[d] = x; else delete S.cur.days[d];
+  updRow(d); markDirty();
+}
+function commitField(inp) {
+  var row = inp.closest('.dr'), d = +row.getAttribute('data-d'), f = inp.getAttribute('data-f');
+  var e = empById(S.cur.id), x = S.cur.days[d] || {}, v = inp.value.trim();
+  if (f === 'n') {
+    if (v === (x.n || '')) return true;
+    if (v) x.n = v.slice(0, 60); else delete x.n;
+  } else {
+    var t = v ? parseTime(v, tmin(f === 'i' ? e.tin : e.tout)) : '';
+    if (t === null) { inp.classList.add('bad'); toast('সময়টা বোঝা যায়নি — যেমন 0915 বা 9:15 লিখুন।'); return false; }
+    inp.classList.remove('bad');
+    if (t === (x[f] || '')) { inp.value = t; return true; }
+    if (t) x[f] = t; else delete x[f];
+  }
+  if (Object.keys(x).length) S.cur.days[d] = x; else delete S.cur.days[d];
+  markDirty();
+  if (f !== 'n') {
+    // ঘর বদলায় না, শুধু ঘণ্টা/দেরি আর সারাংশ — যাতে লেখার জায়গা (focus) না হারায়
+    var tmp = document.createElement('div'); tmp.innerHTML = dayRowInner(e, d);
+    var nh = tmp.querySelector('.dh'), oh = row.querySelector('.dh');
+    if (nh && oh) oh.outerHTML = nh.outerHTML;
+    inp.value = x[f] || ''; inp.classList.toggle('set', !!x[f]);
+    $('sums').innerHTML = sumsHtml(e);
+  }
+  return true;
+}
+function moveFocus(inp, how) {
+  var all = Array.prototype.slice.call(document.querySelectorAll('#dtab .ti:not(:disabled)'));
+  var f = inp.getAttribute('data-f'), i = all.indexOf(inp), t = null;
+  if (how === 'next') t = all[i + 1];
+  else {
+    var same = all.filter(function (x) { return x.getAttribute('data-f') === f; }), j = same.indexOf(inp);
+    t = same[j + (how === 'down' ? 1 : -1)];
+  }
+  if (t) { t.focus(); t.select(); }
+  return t;
+}
+function nextRowSameField(d, f) {
+  var all = Array.prototype.slice.call(document.querySelectorAll('#dtab .ti[data-f="' + f + '"]:not(:disabled)'));
+  for (var i = 0; i < all.length; i++) { if (+all[i].closest('.dr').getAttribute('data-d') > d) { all[i].focus(); all[i].select(); return; } }
+}
+function afterAtt() {
+  bindAttList();
+  if (!S.cur) return;
+  setSaveTxt();
+  var tab = $('dtab'); if (!tab) return;
+  tab.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-st]'); if (!b) return;
+    setStatus(+b.closest('.dr').getAttribute('data-d'), b.getAttribute('data-st'));
+  });
+  tab.addEventListener('change', function (ev) { if (ev.target.matches('.ti,.tn')) commitField(ev.target); });
+  tab.addEventListener('keydown', function (ev) {
+    var t = ev.target;
+    if (t.matches('.dst button')) {
+      var key = (ev.key || '').toLowerCase(), d0 = +t.closest('.dr').getAttribute('data-d');
+      if (KEY_ST[key]) { ev.preventDefault(); setStatus(d0, KEY_ST[key]); var nb = document.querySelector('.dr[data-d="' + (d0 + 1) + '"] .dst button'); if (nb) nb.focus(); }
+      else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault(); var ob = document.querySelector('.dr[data-d="' + (d0 + (ev.key === 'ArrowDown' ? 1 : -1)) + '"] .dst button'); if (ob) ob.focus();
+      }
+      return;
+    }
+    if (!t.matches('.ti')) return;
+    var d = +t.closest('.dr').getAttribute('data-d'), f = t.getAttribute('data-f');
+    var k = (ev.key || '').toLowerCase();
+    if (KEY_ST[k] && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+      ev.preventDefault(); setStatus(d, KEY_ST[k]); nextRowSameField(d, 'i'); return;
+    }
+    if (ev.key === 'Enter') { ev.preventDefault(); if (commitField(t)) moveFocus(t, 'next'); }
+    else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); if (commitField(t)) moveFocus(t, ev.key === 'ArrowDown' ? 'down' : 'up'); }
+  });
+  var q = $('e_qty'); if (q) q.addEventListener('input', function () { S.cur.qty = Number(bnDigits(q.value).replace(/[^\d.]/g, '')) || 0; markDirty(); });
+  var nt = $('e_note'); if (nt) nt.addEventListener('input', function () { S.cur.note = nt.value; markDirty(); });
+}
+function bindAttList() {
+  var q = $('afQ');
+  if (q) q.addEventListener('input', function () { S.af.q = q.value; var pos = q.selectionStart; refreshAttList(); var n = $('afQ'); n.focus(); n.setSelectionRange(pos, pos); });
+  var dp = $('afDept'); if (dp) dp.addEventListener('change', function () { S.af.dept = dp.value; refreshAttList(); });
+}
+function entryNav(dir, mustPending) {
+  var list = attEmps(), c = S.cur, i = list.findIndex(function (x) { return x.id === c.id; }), t = null;
+  if (mustPending) {
+    var rows = S.att.rows;
+    for (var j = 1; j <= list.length; j++) { var x = list[(i + j) % list.length]; if (x.id !== c.id && !(rows[x.id] && rows[x.id].done)) { t = x; break; } }
+  } else t = list[i + dir];
+  if (t) go('#att/' + encodeURIComponent(t.id));
+  else { go('#att'); if (mustPending) toast('🎉 ' + monthLabel(S.month) + '-এর সবার হাজিরা তোলা শেষ!', 4000); }
+}
+function changeMonth(k) {
+  flushSave().then(function () {
+    S.cur = null; S.sel = null; S.month = addMonth(S.month, k); S.att = null; S.attFor = '';
+    if (S.page === 'att') go('#att'); else route();
+  }, function () { toast('আগে সেভ হতে দিন — ইন্টারনেট দেখুন।'); });
+}
+function bulkDone(done) {
+  var ids = Object.keys(S.sel || {}); if (!ids.length) { toast('কাউকে বাছা হয়নি।'); return; }
+  if (done && !confirm(ids.length + ' জনের ' + monthLabel(S.month) + '-এর হাজিরা "শেষ" করবেন?\nযাদের এখনো কিছু তোলা হয়নি, তাদের পুরো মাস নির্ধারিত সময়ে উপস্থিত ধরা হবে।')) return;
+  var chunks = []; for (var i = 0; i < ids.length; i += 300) chunks.push(ids.slice(i, i + 300));
+  var n = 0;
+  toast('⏳ ' + ids.length + ' জন — সেভ হচ্ছে…', 8000);
+  chunks.reduce(function (p, ch) {
+    return p.then(function () { return callServer('apiMarkDone', [S.month, ch, done]).then(function (r) { Object.keys(r).forEach(function (id) { S.att.rows[id] = r[id]; n++; }); }); });
+  }, Promise.resolve()).then(function () {
+    S.sel = null; toast('✓ ' + n + ' জন — ' + (done ? 'তোলা শেষ' : 'আবার খোলা হলো')); render();
+  }, function (err) { toast(err.message, 5000); render(); });
+}
+
+/* ═════════ সেটিংস ═════════ */
+function setPage() {
+  var s = S.set, y = S.holYear || +todayStr().slice(0, 4);
+  var hols = S.hol.filter(function (h) { return h.date.slice(0, 4) === String(y); });
+  return '<div class="ph"><div><h2>সেটিংস</h2><p>সব নিয়ম এখান থেকে — শিট বা কোড ধরতে হবে না।</p></div></div>' +
+    '<div class="cols2">' +
+    '<div>' +
+      '<div class="card"><h3>🏢 প্রতিষ্ঠান</h3><label class="fl">প্রতিষ্ঠানের নাম</label><div style="display:flex;gap:8px"><input class="in" id="s_org" maxlength="80" value="' + esc(s.org) + '"><button class="btn" data-a="s-org">সেভ</button></div></div>' +
+      '<div class="card"><h3>🗂️ বিভাগ</h3><p class="hint">কর্মচারী যোগ করার সময় এগুলো বেছে নেওয়া যাবে।</p>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + ((s.depts || []).map(function (d, i) { return '<span class="chip acc">' + esc(d) + '<button data-a="s-dept-rm" data-i="' + i + '" title="বাদ দিন">✕</button></span>'; }).join('') || '<span class="hint">এখনো কোনো বিভাগ নেই।</span>') + '</div>' +
+        '<div style="display:flex;gap:8px"><input class="in" id="s_dept" maxlength="40" placeholder="নতুন বিভাগ"><button class="btn" data-a="s-dept-add">＋ যোগ</button></div></div>' +
+      '<div class="card"><h3>⏰ নতুন কর্মচারীর সাধারণ সময়সূচি</h3><p class="hint">নতুন কর্মচারী বা এক্সেল থেকে যোগ করার সময় এটা আগে থেকে বসবে — পরে প্রত্যেকের আলাদা করে বদলানো যায়।</p>' +
+        '<div class="g3"><div><label class="fl">আসা</label><input class="in num" id="s_in" type="time" value="' + esc(s.defIn) + '"></div><div><label class="fl">যাওয়া</label><input class="in num" id="s_out" type="time" value="' + esc(s.defOut) + '"></div>' +
+        '<div><label class="fl">বিরতি (মিনিট)</label><input class="in num" id="s_brk" inputmode="numeric" value="' + esc(s.defBrk) + '"></div></div>' +
+        '<label class="fl">সাপ্তাহিক ছুটি</label><div class="days7" id="s_off">' + BN_W.map(function (w, i) { return '<button type="button" data-d="' + i + '" class="' + ((s.defOff || []).indexOf(i) !== -1 ? 'on' : '') + '">' + w + '</button>'; }).join('') + '</div>' +
+        '<div style="text-align:right;margin-top:12px"><button class="btn" data-a="s-sched">সেভ</button></div></div>' +
+      '<div class="card"><h3>⏱️ দেরির নিয়ম</h3><p class="hint">শুধু যাদের "দেরিতে আসলে কাটা" চালু, তাদের জন্য। বেতনের হিসাবে (ধাপ ২) এটা ব্যবহার হবে; হাজিরার পাতায় দেরি গোনায় এখনই ছাড়ের মিনিট ধরা হয়।</p>' +
+        '<label class="fl">নিয়ম</label>' + segH('lateRule', [['count', 'কয়েকবার = ১ দিন'], ['minute', 'যত মিনিট তত টাকা'], ['fixed', 'প্রতিবার নির্দিষ্ট টাকা']], s.lateRule) +
+        '<div class="g3"><div><label class="fl">ছাড় (মিনিট)</label><input class="in num" id="s_grace" inputmode="numeric" value="' + esc(s.lateGrace) + '"></div>' +
+        '<div><label class="fl">কতবার দেরি = ১ দিন</label><input class="in num" id="s_lcount" inputmode="numeric" value="' + esc(s.lateCount) + '"></div>' +
+        '<div><label class="fl">প্রতিবার কত টাকা</label><input class="in num" id="s_ltk" inputmode="numeric" value="' + esc(s.lateTk) + '"></div></div>' +
+        '<p class="hint" style="margin-top:8px">"যত মিনিট তত টাকা" — ঘণ্টার হার ÷ ৬০ × দেরির মিনিট।</p>' +
+        '<div style="text-align:right;margin-top:10px"><button class="btn" data-a="s-late">সেভ</button></div></div>' +
+    '</div><div>' +
+      '<div class="card"><h3>🎉 ছুটির দিন <span class="mnav" style="box-shadow:none"><button data-a="hy-prev">◀</button><b class="num" style="min-width:56px">' + y + '</b><button data-a="hy-next">▶</button></span></h3>' +
+        '<p class="hint">সরকারি ও অফিসের ছুটি — এ দিনগুলো কারো কর্মদিবস ধরা হবে না (সাপ্তাহিক ছুটি প্রত্যেকের নিজের সেটিং থেকে)।</p>' +
+        '<div class="addh" style="margin-top:10px"><div><label class="fl">তারিখ</label><input class="in" id="h_from" type="date"></div><div><label class="fl">শেষ <em>(কয়েক দিন হলে)</em></label><input class="in" id="h_to" type="date"></div>' +
+        '<div><label class="fl">নাম</label><input class="in" id="h_name" maxlength="60" placeholder="যেমন: ঈদুল ফিতর"></div><button class="btn" data-a="h-add">＋ যোগ</button></div>' +
+        '<div class="hols">' + (hols.length ? hols.map(function (h) {
+          var p = h.date.split('-'), w = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
+          return '<div class="hol"><b>' + +p[2] + ' ' + BN_M[+p[1] - 1].slice(0, 6) + '</b><small>' + BN_W[w] + '</small><span>' + esc(h.name) + '</span><button data-a="h-del" data-d="' + h.date + '" title="মুছুন">✕</button></div>';
+        }).join('') : '<p class="hint">' + y + '-এ কোনো ছুটির দিন যোগ করা নেই।</p>') + '</div></div>' +
+      '<div class="card"><h3>🛡️ নিরাপত্তা</h3><p class="hint">কারা অ্যাপ খুলতে পারবেন, কোন কোন ডিভাইসে লগইন আছে।</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+        '<button class="btn" data-a="security">🛡️ অনুমতি ও ডিভাইস</button><button class="btn" data-a="lock">🔒 এখনই লক / PIN বদল</button></div></div>' +
+      '<div class="card"><h3>🎨 থিম</h3>' + segH('theme', [['light', '☀️ আলো'], ['dark', '🌙 অন্ধকার'], ['auto', '🖥️ অটো']], THEME) + '</div>' +
+      '<div class="card"><h3>📜 কার্যতালিকা <button class="btn sm" data-a="log">দেখুন</button></h3><p class="hint">কে কখন কী বদলালেন।</p><div class="logl" id="logBox"></div></div>' +
+    '</div></div>';
+}
+function saveSet(part, okMsg) {
+  return callServer('apiSaveSettings', [part]).then(function (s) {
+    S.set = s; ORG = s.org; saveBootCache(); toast(okMsg || '✓ সেভ হয়েছে'); render();
+  }, function (err) { toast(err.message, 4500); });
+}
+function days7Val(id) { return Array.prototype.slice.call(document.querySelectorAll('#' + id + ' button.on')).map(function (b) { return +b.getAttribute('data-d'); }); }
+
+/* ---------- 🛡️ নিরাপত্তা ---------- */
+function openSecurity() {
+  openSheet('🛡️ নিরাপত্তা', '<div id="secBody"><div class="sk"></div><div class="sk"></div></div>');
+  secCall('apiSecurity', []);
+}
+function secCall(fn, args) {
+  callServer(fn, args).then(secRender, function (err) {
+    if ($('secBody')) $('secBody').insertAdjacentHTML('afterbegin', '<div class="err">' + esc(err.message) + '</div>');
+  });
+}
+function secRender(s) {
+  var b = $('secBody'); if (!b) return;
+  if (s.notOwner) { b.innerHTML = '<p class="hint">আপনি (' + esc(s.me) + ') অ্যাপ ব্যবহার করতে পারেন। অনুমতি আর ডিভাইসের তালিকা শুধু মালিক দেখেন।</p>'; return; }
+  var users = s.users.map(function (u) {
+    return '<div class="row"><span>' + esc(u) + '</span><button class="btn sm red" data-rm="' + esc(u) + '">বাদ দিন</button></div>';
+  }).join('') || '<p class="hint">মালিক ছাড়া আর কেউ নেই।</p>';
+  var dt = function (t) { return t ? new Date(t).toLocaleString('bn-BD', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—'; };
+  var ses = s.sessions.map(function (x) {
+    return '<div class="row"><span>' + esc(x.device) + (x.current ? ' <b style="color:var(--pos)">(এই ডিভাইস)</b>' : '') +
+      '<small>' + esc(x.email) + ' · শেষ দেখা ' + dt(x.last) + '</small></span>' +
+      (x.current ? '' : '<button class="btn sm red" data-rv="' + esc(x.id) + '">বের করুন</button>') + '</div>';
+  }).join('');
+  b.innerHTML = '<p class="hint">মালিক: <b>' + esc(s.owner) + '</b> — সবসময় ঢুকতে পারেন। দিনে একটা ইমেইলে সর্বোচ্চ ' + s.limit + 'টা কোড।</p>' +
+    '<label class="fl">যাঁরা অ্যাপ খুলতে পারবেন (যেমন হিসাবরক্ষক, মালিক)</label>' + users +
+    '<div style="display:flex;gap:8px;margin-top:8px"><input class="in" id="secEm" type="email" placeholder="নতুন ইমেইল"><button class="btn pri" id="secAdd">যোগ করুন</button></div>' +
+    '<label class="fl" style="margin-top:18px">লগইন থাকা ডিভাইস (' + s.sessions.length + ')</label>' + ses +
+    (s.sessions.length > 1 ? '<button class="btn sm red" id="secOthers" style="margin-top:6px">অন্য সব ডিভাইস থেকে বের করে দিন</button>' : '');
+  $('secAdd').onclick = function () { var v = $('secEm').value.trim(); if (v) secCall('apiAddUser', [v]); };
+  b.querySelectorAll('[data-rm]').forEach(function (x) { x.onclick = function () { if (confirm(x.dataset.rm + ' — বাদ দেবেন? তাঁর সব লগইনও বন্ধ হবে।')) secCall('apiRemoveUser', [x.dataset.rm]); }; });
+  b.querySelectorAll('[data-rv]').forEach(function (x) { x.onclick = function () { secCall('apiRevokeSession', [x.dataset.rv]); }; });
+  if ($('secOthers')) $('secOthers').onclick = function () { if (confirm('এই ডিভাইস বাদে সব জায়গা থেকে লগআউট করবেন?')) secCall('apiRevokeOthers', []); };
+}
+
+/* ---------- শিট ---------- */
+function openSheet(title, html, o) {
+  o = o || {};
+  $('ovHost').innerHTML = '<div class="ov' + (o.drawer ? ' drawer' : '') + '" id="ov"><div class="sheet' + (o.wide ? ' wide' : '') + '"><div class="sh-h"><h3>' + title + '</h3><button class="btn sm" data-a="close">✕</button></div>' + html + '</div></div>';
+  $('ov').addEventListener('mousedown', function (e) { if (e.target.id === 'ov') closeOv(); });
+}
+function closeOv() { $('ovHost').innerHTML = ''; F = null; }
+
+/* ═════════ সব ক্লিক এক জায়গায় ═════════ */
+document.addEventListener('click', function (ev) {
+  var t = ev.target;
+  if (!$('menu').hidden && !$('menu').contains(t) && t !== $('menuBtn')) $('menu').hidden = true;
+  var g = t.closest('[data-go]'); if (g) { go(g.getAttribute('data-go')); return; }
+
+  // ফর্মের বোতাম (ধরন, ভিত্তি, সুইচ, ছুটির দিন)
+  var fs = t.closest('[data-fseg] button');
+  if (fs && F && $('empForm') && $('empForm').contains(fs)) {
+    readEmpForm();
+    var k = fs.parentNode.getAttribute('data-fseg'), v = fs.getAttribute('data-v');
+    if (k === 'type') { F.e.type = v; F.e.basis = TYPE_BASIS[v]; }
+    else if (k === 'active') { F.e.active = v === '1'; if (!F.e.active && !F.e.leave) F.e.leave = todayStr(); }
+    else F.e[k] = v;
+    var y = $('empForm').parentNode.scrollTop; drawEmpForm(); $('empForm').parentNode.scrollTop = y; return;
+  }
+  var fw = t.closest('[data-fsw]');
+  if (fw && F) { readEmpForm(); var key = fw.getAttribute('data-fsw'); F.e[key] = !F.e[key]; var y2 = $('empForm').parentNode.scrollTop; drawEmpForm(); $('empForm').parentNode.scrollTop = y2; return; }
+  var od = t.closest('#f_off button, #s_off button'); if (od) { od.classList.toggle('on'); if (F && od.closest('#f_off')) F.e.off = days7Val('f_off'); return; }
+  var sg = t.closest('.seg button');
+  if (sg && sg.parentNode.id === 'efSt') { S.ef.st = sg.getAttribute('data-v'); render(); return; }
+  if (sg && sg.parentNode.id === 'afSt') { S.af.st = sg.getAttribute('data-v'); refreshAttList(); return; }
+  if (sg && sg.parentNode.getAttribute('data-fseg') === 'theme') { THEME = sg.getAttribute('data-v'); try { localStorage.setItem('sal_theme', THEME); } catch (e) {} applyTheme(); render(); return; }
+  if (sg && sg.parentNode.getAttribute('data-fseg') === 'lateRule') { sg.parentNode.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === sg); }); return; }
+
+  var a = t.closest('[data-a]'); if (!a) return;
+  var act = a.getAttribute('data-a'), id = a.getAttribute('data-id');
+  switch (act) {
+    case 'close': closeOv(); break;
+    case 'reboot': S.bootErr = ''; boot(); break;
+    case 'theme': $('menu').hidden = true; THEME = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('sal_theme', THEME); } catch (e) {} applyTheme(); if (S.page === 'set') render(); break;
+    case 'lock': $('menu').hidden = true; flushSave().catch(function () {}).then(function () { if (window.appLockNow) appLockNow(); }); break;
+    case 'logout':
+      $('menu').hidden = true;
+      if (!confirm('এই ডিভাইস থেকে লগআউট করবেন? আবার ঢুকতে ইমেইল কোড লাগবে।')) return;
+      flushSave().catch(function () {}).then(function () { return callServer('apiLogout', []); }).catch(function () {}).then(logoutLocal); break;
+    case 'security': openSecurity(); break;
+    case 'emp-new': openEmp(null); break;
+    case 'emp-open': openEmp(id); break;
+    case 'emp-save': saveEmp(); break;
+    case 'emp-del':
+      if (!confirm(F.e.name + ' — একেবারে মুছে ফেলবেন? (হাজিরা তোলা থাকলে মোছা যাবে না, তখন "বাদ" করুন)')) return;
+      callServer('apiDeleteEmployee', [F.e.id]).then(function () {
+        var nm = F.e.name; S.emps = S.emps.filter(function (x) { return x.id !== F.e.id; }); delete S.rates[F.e.id];
+        saveBootCache(); closeOv(); toast('🗑 ' + nm + ' — মোছা হয়েছে'); render();
+      }, function (err) { toast(err.message, 6000); }); break;
+    case 'rate-add':
+      readEmpForm();
+      var am = bnDigits($('nr_amount').value).replace(/[,৳\s]/g, '');
+      if (am === '') { toast('নতুন হার লিখুন।'); $('nr_amount').focus(); return; }
+      a.disabled = true;
+      callServer('apiAddRate', [F.e.id, { from: $('nr_from').value, amount: am, allow: bnDigits($('nr_allow').value).replace(/[,৳\s]/g, ''), note: $('nr_note').value }]).then(function (rs) {
+        S.rates[F.e.id] = rs; saveBootCache(); drawEmpForm(); toast('✓ নতুন হার যোগ হয়েছে'); refreshEmpList();
+      }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'rate-del':
+      if (!confirm('এই হারটা মুছবেন?')) return;
+      readEmpForm();
+      callServer('apiDeleteRate', [a.getAttribute('data-rid')]).then(function (rs) {
+        S.rates[F.e.id] = rs; saveBootCache(); drawEmpForm(); refreshEmpList();
+      }, function (err) { toast(err.message, 4500); }); break;
+    case 'import': openImport(); break;
+    case 'imp-tpl':
+      var line = IMP_COLS.map(function (c) { return c[1]; }).join('\t');
+      (navigator.clipboard ? navigator.clipboard.writeText(line) : Promise.reject()).then(function () { toast('✓ কপি হয়েছে — এক্সেলের প্রথম সারিতে পেস্ট করুন'); }, function () { prompt('কপি করুন:', line); }); break;
+    case 'imp-save': saveImport(); break;
+
+    case 'm-prev': changeMonth(-1); break;
+    case 'm-next': changeMonth(1); break;
+    case 'att-reload': S.attErr = ''; ensureAtt(S.month, true).then(route, function () {}); break;
+    case 'att-open': go('#att/' + encodeURIComponent(id)); break;
+    case 'ent-back': go('#att'); break;
+    case 'ent-prev': entryNav(-1); break;
+    case 'ent-next': case 'ent-next2': entryNav(1); break;
+    case 'ent-done':
+      var e = empById(S.cur.id);
+      if (e && e.basis === 'piece' && !S.cur.qty && !confirm('কাজের পরিমাণ ০ — তবু শেষ করবেন?')) return;
+      a.disabled = true;
+      doSave(true).then(function () { entryNav(1, true); }, function (err) { a.disabled = false; toast(err.message.replace(/^CONFLICT:\s*/, ''), 5000); }); break;
+    case 'ent-undone':
+      doSave(false).then(function () { render(); }, function (err) { toast(err.message, 5000); }); break;
+    case 't-tog': S.timeOn = !timeOn(empById(S.cur.id)); render(); break;
+    case 'ent-reset':
+      if (!confirm('এই মাসের সব ব্যতিক্রম মুছে পুরো মাস নির্ধারিত সময়ে উপস্থিত ধরবেন?')) return;
+      S.cur.days = {}; render(); markDirty(); break;
+    case 'sel-on': S.sel = {}; refreshAttList(); break;
+    case 'sel-off': S.sel = null; refreshAttList(); break;
+    case 'sel-tog': if (S.sel[id]) delete S.sel[id]; else S.sel[id] = 1; refreshAttList(); break;
+    case 'sel-all': attEmps().forEach(function (x) { S.sel[x.id] = 1; }); refreshAttList(); break;
+    case 'sel-done': bulkDone(true); break;
+    case 'sel-undone': bulkDone(false); break;
+
+    case 's-org': saveSet({ org: $('s_org').value }); break;
+    case 's-dept-add':
+      var nd = $('s_dept').value.trim(); if (!nd) return;
+      saveSet({ depts: (S.set.depts || []).concat([nd]) }, '✓ বিভাগ যোগ হয়েছে'); break;
+    case 's-dept-rm':
+      var ds = (S.set.depts || []).slice(); ds.splice(+a.getAttribute('data-i'), 1); saveSet({ depts: ds }); break;
+    case 's-sched': saveSet({ defIn: $('s_in').value, defOut: $('s_out').value, defBrk: bnDigits($('s_brk').value) || 0, defOff: days7Val('s_off') }); break;
+    case 's-late':
+      var rb = document.querySelector('[data-fseg="lateRule"] button.on');
+      saveSet({ lateRule: rb ? rb.getAttribute('data-v') : 'count', lateGrace: bnDigits($('s_grace').value) || 0, lateCount: bnDigits($('s_lcount').value) || 1, lateTk: bnDigits($('s_ltk').value) || 0 }); break;
+    case 'hy-prev': S.holYear = (S.holYear || +todayStr().slice(0, 4)) - 1; render(); break;
+    case 'hy-next': S.holYear = (S.holYear || +todayStr().slice(0, 4)) + 1; render(); break;
+    case 'h-add':
+      var hf = $('h_from').value, ht = $('h_to').value || hf, hn = $('h_name').value.trim();
+      if (!hf) { toast('তারিখ দিন।'); return; } if (!hn) { toast('ছুটির নাম লিখুন।'); $('h_name').focus(); return; }
+      a.disabled = true;
+      callServer('apiSaveHolidays', [hf, ht, hn]).then(function (h) {
+        S.hol = h; setHolMap(); S.holYear = +hf.slice(0, 4); saveBootCache(); toast('✓ ছুটির দিন যোগ হয়েছে'); render();
+      }, function (err) { a.disabled = false; toast(err.message, 4500); }); break;
+    case 'h-del':
+      if (!confirm(dateLabel(a.getAttribute('data-d')) + ' — ছুটির দিনটা মুছবেন?')) return;
+      callServer('apiDeleteHoliday', [a.getAttribute('data-d')]).then(function (h) { S.hol = h; setHolMap(); saveBootCache(); render(); }, function (err) { toast(err.message, 4500); }); break;
+    case 'log':
+      $('logBox').innerHTML = '<div class="sk"></div>';
+      callServer('apiLog', [80]).then(function (l) {
+        $('logBox').innerHTML = l.length ? l.map(function (x) { return '<div><small>' + esc(x.at) + ' · ' + esc(x.by) + '</small><br><b>' + esc(x.act) + '</b> — ' + esc(x.detail) + '</div>'; }).join('') : '<p class="hint">এখনো কিছু নেই।</p>';
+      }, function (err) { $('logBox').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }); break;
+  }
+});
+document.addEventListener('input', function (ev) {
+  var t = ev.target;
+  if (t.id === 'efQ') { S.ef.q = t.value; refreshEmpList(); }
+  else if (F && (t.id === 'f_tin' || t.id === 'f_tout' || t.id === 'f_brk')) {
+    readEmpForm();
+    var h = t.closest('.sheet').querySelector('#f_brk').closest('.g3').nextElementSibling;
+    if (h) h.innerHTML = 'দৈনিক কর্মঘণ্টা: <b class="num">' + hm(Math.max(0, span(F.e.tin, F.e.tout) - (Number(F.e.brk) || 0))) + '</b>';
+  }
+});
+document.addEventListener('change', function (ev) {
+  var t = ev.target;
+  if (t.id === 'efDept') { S.ef.dept = t.value; refreshEmpList(); }
+  else if (t.id === 'efType') { S.ef.type = t.value; refreshEmpList(); }
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape' && $('ov')) closeOv();
+  if (ev.key === 'Enter' && ev.target.id === 's_dept') { ev.preventDefault(); document.querySelector('[data-a="s-dept-add"]').click(); }
+});
+$('menuBtn').addEventListener('click', function (e) { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; });
+window.addEventListener('beforeunload', function (e) { if (S.cur && (S.cur.dirty || S.cur.saving)) { e.preventDefault(); e.returnValue = ''; } });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (THEME === 'auto') applyTheme(); });
+
+/* ---------- লগইন ---------- */
+var LG = { email: '' };
+function showLogin() {
+  $('app').hidden = true; $('login').hidden = false;
+  $('lgOrg').textContent = ORG + ' — বেতন হিসাব';
+  lgStep(1);
+  if (window.appLockWaitLogin) appLockWaitLogin();
+}
+function showApp() {
+  $('login').hidden = true; $('app').hidden = false;
+  boot();
+}
+function lgStep(n) {
+  $('lgStep1').hidden = n !== 1; $('lgStep2').hidden = n !== 2; $('lgBack').hidden = n !== 2;
+  $('lgBtn').textContent = n === 1 ? 'কোড পাঠান' : 'লগইন';
+  lgMsg(n === 2 ? LG.email + ' — ইনবক্সে কোড গেছে (Spam-ও দেখুন)।' : '', true);
+  setTimeout(function () { (n === 1 ? $('lgEmail') : $('lgCode')).focus(); }, 30);
+}
+function lgMsg(m, ok) { var e = $('lgMsg'); e.textContent = m; e.className = 'lg-msg' + (ok ? ' ok' : ''); }
+function device() {
+  var u = navigator.userAgent;
+  var os = /Android/.test(u) ? 'Android' : /iPhone|iPad/.test(u) ? 'iPhone' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'অন্য';
+  var br = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  return os + ' · ' + br;
+}
+$('lgForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var btn = $('lgBtn'); if (btn.disabled) return;
+  var step1 = !$('lgStep1').hidden;
+  var done = function () { btn.disabled = false; btn.textContent = step1 ? 'কোড পাঠান' : 'লগইন'; };
+  if (step1) {
+    var em = $('lgEmail').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { lgMsg('ঠিক ইমেইল লিখুন।'); return; }
+    btn.disabled = true; btn.textContent = '⏳ পাঠানো হচ্ছে…'; lgMsg('');
+    callServer('apiSendCode', [em]).then(function () { LG.email = em; done(); lgStep(2); }, function (err) { done(); lgMsg(err.message); });
+  } else {
+    var code = $('lgCode').value.replace(/\D/g, '');
+    if (code.length !== 6) { lgMsg('৬ সংখ্যার কোড লিখুন।'); return; }
+    btn.disabled = true; btn.textContent = '⏳ যাচাই হচ্ছে…'; lgMsg('');
+    callServer('apiVerifyCode', [LG.email, code, device()]).then(function (tok) {
+      done(); setAuth(tok); $('lgCode').value = '';
+      showApp();
+      if (window.appLockAfterLogin) appLockAfterLogin();
+    }, function (err) { done(); lgMsg(err.message); });
+  }
+});
+$('lgBack').addEventListener('click', function () { lgStep(1); });
+
+function logoutLocal() {
+  setAuth(''); S.booted = false; S.cur = null; S.att = null; S.attFor = ''; closeOv();
+  showLogin();
+}
+
+/* ---------- শুরু ---------- */
+if (AUTH) showApp(); else showLogin();
+</script>
+</body>
+</html>
