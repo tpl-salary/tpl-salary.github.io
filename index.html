@@ -2069,13 +2069,13 @@ function setPage() {
         '<div><label class="fl">বিরতি (মিনিট)</label><input class="in num" id="s_brk" inputmode="numeric" value="' + esc(s.defBrk) + '"></div></div>' +
         '<label class="fl">সাপ্তাহিক ছুটি</label><div class="days7" id="s_off">' + BN_W.map(function (w, i) { return '<button type="button" data-d="' + i + '" class="' + ((s.defOff || []).indexOf(i) !== -1 ? 'on' : '') + '">' + w + '</button>'; }).join('') + '</div>' +
         '<div style="text-align:right;margin-top:12px"><button class="btn" data-a="s-sched">সেভ</button></div></div>' +
-      '<div class="card"><h3>⏱️ দেরির নিয়ম</h3><p class="hint">শুধু যাদের "দেরিতে আসলে কাটা" চালু, তাদের জন্য। বেতনের হিসাবে (ধাপ ২) এটা ব্যবহার হবে; হাজিরার পাতায় দেরি গোনায় এখনই ছাড়ের মিনিট ধরা হয়।</p>' +
+      '<div class="card"><h3>⏱️ দেরির নিয়ম</h3><p class="hint">শুধু যাদের "দেরিতে আসলে কাটা" চালু, তাদের জন্য। বেতনের হিসাবে এই নিয়মে দেরির টাকা কাটা হয়; হাজিরার পাতায় দেরি গোনায় ছাড়ের মিনিট ধরা হয়।</p>' +
         '<label class="fl">নিয়ম</label>' + segH('lateRule', [['count', 'কয়েকবার = ১ দিন'], ['minute', 'যত মিনিট তত টাকা'], ['fixed', 'প্রতিবার নির্দিষ্ট টাকা']], s.lateRule) +
         '<div class="g3"><div><label class="fl">ছাড় (মিনিট)</label><input class="in num" id="s_grace" inputmode="numeric" value="' + esc(s.lateGrace) + '"></div>' +
         '<div><label class="fl">কতবার দেরি = ১ দিন</label><input class="in num" id="s_lcount" inputmode="numeric" value="' + esc(s.lateCount) + '"></div>' +
         '<div><label class="fl">প্রতিবার কত টাকা</label><input class="in num" id="s_ltk" inputmode="numeric" value="' + esc(s.lateTk) + '"></div></div>' +
         '<p class="hint" style="margin-top:8px">"যত মিনিট তত টাকা" — ঘণ্টার হার ÷ ৬০ × দেরির মিনিট।</p>' +
-        '<div style="text-align:right;margin-top:10px"><button class="btn" data-a="s-late">সেভ</button></div></div>') +
+        '<div style="text-align:right;margin-top:10px"><button class="btn" data-a="s-late">সেভ</button></div></div>' + rulesCard(s)) +
       (can('users') ? '<div class="card"><h3>👥 ব্যবহারকারী ও ভূমিকা <button class="btn sm pri" data-a="u-new">＋ নতুন</button></h3><p class="hint">কে অ্যাপে ঢুকবেন, কী করতে পারবেন, কোন প্রতিষ্ঠান/বিভাগের দায়িত্বে।</p><div id="usersBox"><div class="sk"></div></div></div>' : '') +
     '</div><div>' +
       '<div class="card"><h3>🎉 ছুটির দিন <span class="mnav" style="box-shadow:none"><button data-a="hy-prev">◀</button><b class="num" style="min-width:56px">' + y + '</b><button data-a="hy-next">▶</button></span></h3>' +
@@ -2091,6 +2091,24 @@ function setPage() {
       '<div class="card"><h3>🎨 থিম</h3>' + segH('theme', [['light', '☀️ আলো'], ['dark', '🌙 অন্ধকার'], ['auto', '🖥️ অটো']], THEME) + '</div>' +
       (can('log') ? '<div class="card"><h3>📜 কার্যতালিকা <button class="btn sm" data-a="log">দেখুন</button></h3><p class="hint">কে কখন কী বদলালেন।</p><div class="logl" id="logBox"></div></div>' : '') +
     '</div></div>';
+}
+// বেতনের নিয়ম — শুরুর মানগুলো ধাপ ২-এর ধরে নেওয়া নিয়ম; বদলালে খসড়া বেতন আবার হিসাব করতে হয়
+function ruleRow(k, label, opts, val, hint) {
+  return '<label class="fl">' + label + '</label>' + segH('r_' + k, opts, val) + (hint ? '<p class="hint" style="margin-top:4px">' + hint + '</p>' : '');
+}
+function rulesCard(s) {
+  return '<div class="card"><h3>💰 বেতনের নিয়ম</h3><p class="hint">সবার বেতনের হিসাবে খাটে। বদলালে খসড়া বেতন "আবার হিসাব" করতে হবে; অনুমোদিত মাস বদলায় না।</p>' +
+    ruleRow('halfDed', 'অর্ধদিবস (মাসিক ও দিন ধরে)', [['half', 'অর্ধেক দিন কাটা'], ['full', 'পুরো দিন কাটা'], ['none', 'কাটা নেই']], s.halfDed || 'half') +
+    ruleRow('prorate', 'মাঝমাসে যোগদান / বাদ (মাসিক ও নির্দিষ্ট টাকা)', [['actual', 'মাসের আসল দিনের অনুপাতে'], ['fixed30', 'প্রতিদিন বেতন ÷ ' + (s.monthDays || 30)]], s.prorate || 'actual',
+      'যেমন ৩১ দিনের মাসে ১৬ দিন কাজ: আসল অনুপাতে বেতনের ১৬/৩১, ÷ ৩০ নিয়মে ১৬/৩০ (তবে পুরো বেতনের বেশি নয়)।') +
+    ruleRow('offDay', 'দিন ধরে বেতন — ছুটির দিনে কাজ', [['extra', 'বাড়তি এক দিন'], ['double', 'দ্বিগুণ'], ['none', 'বাড়তি নয়']], s.offDay || 'extra') +
+    ruleRow('offMonth', 'মাসিক বেতন — ছুটির দিনে কাজ', [['none', 'বাড়তি নয়'], ['extra', 'এক দিনের বেতন বাড়তি']], s.offMonth || 'none',
+      'যাঁদের ওভারটাইম চালু, তাঁদের ছুটির দিনের কাজ ওভারটাইমেই ধরা হয় — দুবার নয়।') +
+    ruleRow('hourLeave', 'ঘণ্টা ধরে বেতন — মঞ্জুর ছুটির দিন', [['sched', 'নির্ধারিত ঘণ্টার টাকা'], ['none', 'টাকা নেই']], s.hourLeave || 'sched') +
+    ruleRow('otScope', 'ওভারটাইম কখন ধরা হবে (যাঁদের চালু)', [['both', 'কর্মদিবসের বাড়তি + ছুটির দিনের কাজ'], ['work', 'শুধু কর্মদিবসের বাড়তি'], ['off', 'শুধু ছুটির দিনের কাজ']], s.otScope || 'both',
+      'কর্মদিবসের বাড়তি সময় ধরা হয় শুধু যেদিন হাজিরায় যাওয়ার সময় তোলা আছে।') +
+    '<label class="fl">কর্মদিবসে দিনে অন্তত কত মিনিট বেশি হলে ওভারটাইম <em>(০ = যত মিনিটই হোক)</em></label><input class="in num" id="s_otmin" inputmode="numeric" value="' + esc(s.otMinDay || 0) + '" style="max-width:160px">' +
+    '<div style="text-align:right;margin-top:12px"><button class="btn" data-a="s-rules">সেভ</button></div></div>';
 }
 function saveSet(part, okMsg) {
   return callServer('apiSaveSettings', [part]).then(function (s) {
@@ -2209,7 +2227,7 @@ document.addEventListener('click', function (ev) {
     return;
   }
   if (sg && sg.parentNode.getAttribute('data-fseg') === 'theme') { THEME = sg.getAttribute('data-v'); try { localStorage.setItem('sal_theme', THEME); } catch (e) {} applyTheme(); render(); return; }
-  if (sg && sg.parentNode.getAttribute('data-fseg') === 'lateRule') { sg.parentNode.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === sg); }); return; }
+  if (sg && /^(lateRule|r_)/.test(sg.parentNode.getAttribute('data-fseg') || '')) { sg.parentNode.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b === sg); }); return; }
 
   var a = t.closest('[data-a]'); if (!a) return;
   var act = a.getAttribute('data-a'), id = a.getAttribute('data-id');
@@ -2385,6 +2403,10 @@ document.addEventListener('click', function (ev) {
     case 's-late':
       var rb = document.querySelector('[data-fseg="lateRule"] button.on');
       saveSet({ lateRule: rb ? rb.getAttribute('data-v') : 'count', lateGrace: bnDigits($('s_grace').value) || 0, lateCount: bnDigits($('s_lcount').value) || 1, lateTk: bnDigits($('s_ltk').value) || 0 }); break;
+    case 's-rules':
+      var rp = { otMinDay: bnDigits($('s_otmin').value) || 0 };
+      ['halfDed', 'prorate', 'offDay', 'offMonth', 'hourLeave', 'otScope'].forEach(function (k) { var on = document.querySelector('[data-fseg="r_' + k + '"] button.on'); if (on) rp[k] = on.getAttribute('data-v'); });
+      saveSet(rp, '✓ বেতনের নিয়ম সেভ হয়েছে — খসড়া বেতন থাকলে "আবার হিসাব" করুন'); break;
     case 'hy-prev': S.holYear = (S.holYear || +todayStr().slice(0, 4)) - 1; render(); break;
     case 'hy-next': S.holYear = (S.holYear || +todayStr().slice(0, 4)) + 1; render(); break;
     case 'h-add':
